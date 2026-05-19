@@ -383,6 +383,211 @@ impl Projection for LambertConformalConic {
     }
 }
 
+/// Albers Equal Area Conic projection.
+///
+/// Commonly used for continental-scale maps (e.g., CONUS, Europe).
+#[derive(Debug, Clone)]
+pub struct AlbersEqualArea {
+    ellipsoid: Ellipsoid,
+    n: f64,
+    c: f64,
+    rho0: f64,
+    lon0: f64,
+}
+
+impl AlbersEqualArea {
+    /// Create Albers Equal Area Conic with two standard parallels.
+    ///
+    /// * `lat1`, `lat2` — standard parallels in degrees
+    /// * `lat0` — latitude of origin in degrees
+    /// * `lon0` — central meridian in degrees
+    pub fn new(ellipsoid: Ellipsoid, lat1: f64, lat2: f64, lat0: f64, lon0: f64) -> Self {
+        let phi1 = lat1.to_radians();
+        let phi2 = lat2.to_radians();
+        let phi0 = lat0.to_radians();
+        let e = ellipsoid.e();
+
+        let m1 = Self::m_func(phi1, e);
+        let m2 = Self::m_func(phi2, e);
+        let q0 = Self::q_func(phi0, e);
+        let q1 = Self::q_func(phi1, e);
+        let q2 = Self::q_func(phi2, e);
+
+        let n = (m1 * m1 - m2 * m2) / (q2 - q1);
+        let c = m1 * m1 + n * q1;
+        let rho0 = ellipsoid.a * (c - n * q0).sqrt() / n;
+
+        Self {
+            ellipsoid,
+            n,
+            c,
+            rho0,
+            lon0,
+        }
+    }
+
+    fn m_func(phi: f64, e: f64) -> f64 {
+        phi.cos() / (1.0 - e * e * phi.sin().powi(2)).sqrt()
+    }
+
+    fn q_func(phi: f64, e: f64) -> f64 {
+        let sin_phi = phi.sin();
+        let e_sin = e * sin_phi;
+        (1.0 - e * e)
+            * (sin_phi / (1.0 - e_sin * e_sin)
+                - (1.0 / (2.0 * e)) * ((1.0 - e_sin) / (1.0 + e_sin)).ln())
+    }
+}
+
+impl Projection for AlbersEqualArea {
+    fn forward(&self, geo: Geographic) -> Result<Coord, Error> {
+        let phi = geo.lat.to_radians();
+        let lam = geo.lon.to_radians();
+        let lam0 = self.lon0.to_radians();
+        let e = self.ellipsoid.e();
+        let a = self.ellipsoid.a;
+
+        let q = Self::q_func(phi, e);
+        let rho = a * (self.c - self.n * q).sqrt() / self.n;
+        let theta = self.n * (lam - lam0);
+
+        let x = rho * theta.sin();
+        let y = self.rho0 - rho * theta.cos();
+        Ok(Coord::new(x, y))
+    }
+
+    fn inverse(&self, coord: Coord) -> Result<Geographic, Error> {
+        let a = self.ellipsoid.a;
+        let e = self.ellipsoid.e();
+        let lam0 = self.lon0.to_radians();
+
+        let rho = (coord.x.powi(2) + (self.rho0 - coord.y).powi(2)).sqrt() * self.n.signum();
+        let theta = (coord.x / (self.rho0 - coord.y)).atan();
+        let q = (self.c - (rho * self.n / a).powi(2)) / self.n;
+
+        // Iterative inverse for latitude
+        let mut phi = (q / 2.0).asin();
+        for _ in 0..20 {
+            let sin_phi = phi.sin();
+            let e_sin = e * sin_phi;
+            let one_minus = 1.0 - e_sin * e_sin;
+            let dphi = one_minus * one_minus / (2.0 * phi.cos())
+                * (q / (1.0 - e * e) - sin_phi / one_minus
+                    + (1.0 / (2.0 * e)) * ((1.0 - e_sin) / (1.0 + e_sin)).ln());
+            phi += dphi;
+            if dphi.abs() < 1e-12 {
+                break;
+            }
+        }
+
+        let lon = (theta / self.n + lam0).to_degrees();
+        let lat = phi.to_degrees();
+        Ok(Geographic::new(lon, lat))
+    }
+
+    fn ellipsoid(&self) -> &Ellipsoid {
+        &self.ellipsoid
+    }
+}
+
+/// Polar Stereographic projection (UPS and polar regions).
+#[derive(Debug, Clone)]
+pub struct PolarStereographic {
+    ellipsoid: Ellipsoid,
+    north: bool,
+    k0: f64,
+}
+
+impl PolarStereographic {
+    pub fn north(ellipsoid: Ellipsoid) -> Self {
+        Self {
+            ellipsoid,
+            north: true,
+            k0: 0.994,
+        }
+    }
+
+    pub fn south(ellipsoid: Ellipsoid) -> Self {
+        Self {
+            ellipsoid,
+            north: false,
+            k0: 0.994,
+        }
+    }
+}
+
+impl Projection for PolarStereographic {
+    fn forward(&self, geo: Geographic) -> Result<Coord, Error> {
+        let a = self.ellipsoid.a;
+        let e = self.ellipsoid.e();
+        let lon_rad = geo.lon.to_radians();
+        let lat_rad = if self.north {
+            geo.lat.to_radians()
+        } else {
+            -geo.lat.to_radians()
+        };
+        let lam = if self.north { lon_rad } else { -lon_rad };
+
+        let sin_lat = lat_rad.sin();
+        let e_sin = e * sin_lat;
+        let t = ((std::f64::consts::FRAC_PI_4 - lat_rad / 2.0).tan())
+            / ((1.0 - e_sin) / (1.0 + e_sin)).powf(e / 2.0);
+
+        let rho = 2.0 * a * self.k0 * t
+            / ((1.0 + e).powf((1.0 + e) / 2.0) * (1.0 - e).powf((1.0 - e) / 2.0)).sqrt();
+
+        let x = rho * lam.sin();
+        let y = -rho * lam.cos();
+
+        if self.north {
+            Ok(Coord::new(x, y))
+        } else {
+            Ok(Coord::new(x, -y))
+        }
+    }
+
+    fn inverse(&self, coord: Coord) -> Result<Geographic, Error> {
+        let a = self.ellipsoid.a;
+        let e = self.ellipsoid.e();
+
+        let (x, y) = if self.north {
+            (coord.x, coord.y)
+        } else {
+            (coord.x, -coord.y)
+        };
+
+        let rho = (x * x + y * y).sqrt();
+        let t = rho * ((1.0 + e).powf((1.0 + e) / 2.0) * (1.0 - e).powf((1.0 - e) / 2.0)).sqrt()
+            / (2.0 * a * self.k0);
+
+        // Iterative latitude from t
+        let mut phi = std::f64::consts::FRAC_PI_2 - 2.0 * t.atan();
+        for _ in 0..20 {
+            let e_sin = e * phi.sin();
+            let new_phi = std::f64::consts::FRAC_PI_2
+                - 2.0 * (t * ((1.0 - e_sin) / (1.0 + e_sin)).powf(e / 2.0)).atan();
+            if (new_phi - phi).abs() < 1e-12 {
+                break;
+            }
+            phi = new_phi;
+        }
+
+        let lam = x.atan2(-y);
+
+        let (lon, lat) = if self.north {
+            (lam.to_degrees(), phi.to_degrees())
+        } else {
+            ((-lam).to_degrees(), (-phi).to_degrees())
+        };
+
+        Ok(Geographic::new(lon, lat))
+    }
+
+    fn ellipsoid(&self) -> &Ellipsoid {
+        &self.ellipsoid
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -414,5 +619,25 @@ mod tests {
         let result = proj.forward(Geographic::new(0.0, 0.0)).unwrap();
         assert!((result.x).abs() < 1e-6);
         assert!((result.y).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_albers_roundtrip() {
+        let proj = AlbersEqualArea::new(Ellipsoid::WGS84, 29.5, 45.5, 23.0, -96.0);
+        let geo = Geographic::new(-90.0, 35.0);
+        let projected = proj.forward(geo).unwrap();
+        let recovered = proj.inverse(projected).unwrap();
+        assert!((recovered.lon - geo.lon).abs() < 1e-5);
+        assert!((recovered.lat - geo.lat).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_polar_stereographic_roundtrip() {
+        let proj = PolarStereographic::north(Ellipsoid::WGS84);
+        let geo = Geographic::new(10.0, 80.0);
+        let projected = proj.forward(geo).unwrap();
+        let recovered = proj.inverse(projected).unwrap();
+        assert!((recovered.lon - geo.lon).abs() < 1e-6);
+        assert!((recovered.lat - geo.lat).abs() < 1e-6);
     }
 }

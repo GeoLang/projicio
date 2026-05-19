@@ -11,7 +11,8 @@ mod transform;
 pub use ellipsoid::Ellipsoid;
 pub use error::Error;
 pub use projection::{
-    LambertConformalConic, Mercator, Projection, TransverseMercator, WebMercator,
+    AlbersEqualArea, LambertConformalConic, Mercator, PolarStereographic, Projection,
+    TransverseMercator, WebMercator,
 };
 pub use transform::Transform;
 

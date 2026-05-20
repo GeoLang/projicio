@@ -3,11 +3,16 @@
 //! Provides coordinate transformations between geographic (longitude/latitude)
 //! and projected coordinate systems with no C dependencies.
 
+mod datum;
 mod ellipsoid;
 mod error;
 mod projection;
 mod transform;
 
+pub use datum::{
+    GeocentricCoord, HelmertTransform, geocentric_to_geodetic, geodetic_to_geocentric,
+    transform_datum,
+};
 pub use ellipsoid::Ellipsoid;
 pub use error::Error;
 pub use projection::{

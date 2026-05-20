@@ -5,6 +5,7 @@
 
 mod datum;
 mod ellipsoid;
+pub mod epsg;
 mod error;
 mod ntv2;
 mod projection;

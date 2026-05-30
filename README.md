@@ -4,7 +4,7 @@
 
 Zero C dependencies. No PROJ, no GDAL. Just fast, correct coordinate transformations.
 
-[Documentation](https://tiletopia-hq.github.io/projicio/) · [GitHub](https://github.com/TileTopia-HQ/projicio)
+[Documentation](https://geolang.github.io/projicio/) · [GitHub](https://github.com/GeoLang/projicio)
 
 ## Features
 

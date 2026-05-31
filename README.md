@@ -1,5 +1,8 @@
 # Projicio
 
+[![CI](https://github.com/GeoLang/projicio/actions/workflows/ci.yml/badge.svg)](https://github.com/GeoLang/projicio/actions)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+
 **Pure-Rust coordinate reference system and map projection engine.**
 
 Zero C dependencies. No PROJ, no GDAL. Just fast, correct coordinate transformations.

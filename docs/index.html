@@ -53,9 +53,9 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 <a href="#projections" class="secondary">Projections</a>
 </div>
 <div class="stats">
-<div class="stat"><div class="num">4</div><div class="label">Projections</div></div>
-<div class="stat"><div class="num">4</div><div class="label">Ellipsoids</div></div>
-<div class="stat"><div class="num">60</div><div class="label">UTM zones</div></div>
+<div class="stat"><div class="num">6</div><div class="label">Projections</div></div>
+<div class="stat"><div class="num">5</div><div class="label">Ellipsoids</div></div>
+<div class="stat"><div class="num">120</div><div class="label">UTM zones</div></div>
 <div class="stat"><div class="num">0</div><div class="label">C dependencies</div></div>
 </div>
 </div>
@@ -69,9 +69,11 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 <h3>📐 Projections</h3>
 <ul>
 <li>Web Mercator (EPSG:3857)</li>
-<li>Transverse Mercator / UTM (zones 1–60)</li>
-<li>Mercator (equatorial)</li>
+<li>Transverse Mercator / UTM (zones 1–60, north and south)</li>
+<li>Mercator (ellipsoidal, EPSG:3395)</li>
 <li>Lambert Conformal Conic (2 standard parallels)</li>
+<li>Albers Equal Area (conic equal-area)</li>
+<li>Polar Stereographic</li>
 </ul>
 </div>
 <div class="card">
@@ -90,7 +92,7 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 <li>High-level EPSG code interface</li>
 <li>Forward and inverse transforms</li>
 <li>Thread-safe (Send + Sync)</li>
-<li>All 60 UTM zones (N/S)</li>
+<li>All 120 UTM zones (60 north, 60 south)</li>
 <li>Sub-millimeter accuracy</li>
 </ul>
 </div>

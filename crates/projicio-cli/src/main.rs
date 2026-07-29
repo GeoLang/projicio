@@ -1,4 +1,5 @@
 use clap::Parser;
+use projicio_core::Support;
 
 #[derive(Parser)]
 #[command(name = "projicio", about = "Coordinate transformation CLI")]
@@ -22,6 +23,11 @@ enum Commands {
         /// Y coordinate (or latitude)
         y: f64,
     },
+    /// Report whether a CRS is supported and which engine handles it
+    Info {
+        /// CRS to look up (e.g. EPSG:27700)
+        crs: String,
+    },
 }
 
 fn main() {
@@ -35,5 +41,30 @@ fn main() {
             },
             Err(e) => eprintln!("Error: {e}"),
         },
+        Commands::Info { crs } => info(&crs),
+    }
+}
+
+fn info(crs: &str) {
+    let Some(code) = projicio_core::epsg::parse_wkt_epsg(crs).or_else(|| crs.parse().ok()) else {
+        eprintln!("Error: could not read an EPSG code from {crs:?}");
+        std::process::exit(1);
+    };
+
+    let support = projicio_core::epsg::support(code);
+    println!("EPSG:{code}");
+    match support {
+        Support::Native => println!("support: native"),
+        Support::Fallback => println!("support: fallback (proj4rs)"),
+        Support::Unsupported => println!("support: none"),
+    }
+    if let Some(name) = projicio_core::epsg::lookup(code).map(|d| d.name) {
+        println!("name: {name}");
+    }
+    if let Some(proj4) = projicio_core::epsg::proj4_definition(code) {
+        println!("proj4: {proj4}");
+    }
+    if support == Support::Unsupported {
+        std::process::exit(1);
     }
 }

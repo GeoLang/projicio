@@ -2,8 +2,24 @@
 //!
 //! Provides a built-in database of common coordinate reference systems
 //! with their projection parameters, datum, and ellipsoid info.
+//!
+//! Codes outside that database are served by an embedded proj4 definition
+//! table covering the wider EPSG registry, see [`support`].
 
 use crate::ellipsoid::Ellipsoid;
+
+pub use crate::fallback::proj4_definition;
+
+/// Which engine handles transforms for an EPSG code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Support {
+    /// projicio's own projection math.
+    Native,
+    /// The embedded proj4 definition table, transformed by proj4rs.
+    Fallback,
+    /// No definition available for this code.
+    Unsupported,
+}
 
 /// A coordinate reference system definition from the EPSG registry.
 #[derive(Debug, Clone)]
@@ -185,6 +201,29 @@ pub fn lookup(code: u32) -> Option<CrsDef> {
     }
 }
 
+/// True when projicio transforms this code with its own projection math.
+///
+/// This is the set [`crate::Transform`] dispatches natively, which is narrower than
+/// what [`lookup`] returns parameters for.
+pub fn is_native(code: u32) -> bool {
+    matches!(code, 4326 | 3857 | 32601..=32660 | 32701..=32760)
+}
+
+/// Report which engine would handle transforms for an EPSG code.
+///
+/// [`Support::Fallback`] is only reported when the embedded definition actually
+/// builds, since proj4rs implements a subset of proj's projection methods and the
+/// table contains codes it cannot construct.
+pub fn support(code: u32) -> Support {
+    if is_native(code) {
+        Support::Native
+    } else if crate::fallback::build(code).is_ok() {
+        Support::Fallback
+    } else {
+        Support::Unsupported
+    }
+}
+
 /// Parse a simple WKT CRS string and extract the EPSG code.
 ///
 /// Supports WKT1 and WKT2 patterns like:
@@ -258,6 +297,30 @@ mod tests {
     #[test]
     fn test_lookup_unknown() {
         assert!(lookup(99999).is_none());
+    }
+
+    #[test]
+    fn test_support_native() {
+        assert_eq!(support(4326), Support::Native);
+        assert_eq!(support(32632), Support::Native);
+        assert!(is_native(3857));
+    }
+
+    #[test]
+    fn test_support_fallback() {
+        assert_eq!(support(27700), Support::Fallback);
+        assert!(!is_native(27700));
+    }
+
+    #[test]
+    fn test_support_unsupported() {
+        assert_eq!(support(99999), Support::Unsupported);
+    }
+
+    #[test]
+    fn test_proj4_definition() {
+        assert!(proj4_definition(3035).unwrap().contains("+proj=laea"));
+        assert!(proj4_definition(99999).is_none());
     }
 
     #[test]

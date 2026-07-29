@@ -8,6 +8,8 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+crs-definitions = { version = "0.5", default-features = false, features = ["proj4"] }
+proj4rs = { version = "0.1.10", default-features = false, features = ["multi-thread", "krovak"] }
 thiserror = "2"
 
 [dev-dependencies]

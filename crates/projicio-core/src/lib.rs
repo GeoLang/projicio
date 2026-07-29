@@ -2,11 +2,17 @@
 //!
 //! Provides coordinate transformations between geographic (longitude/latitude)
 //! and projected coordinate systems with no C dependencies.
+//!
+//! Codes projicio implements itself are transformed by its own projection math.
+//! Anything else resolves through an embedded proj4 definition table covering the
+//! wider EPSG registry, transformed by the pure-Rust proj4rs engine. Ask
+//! [`epsg::support`] which path a code takes.
 
 mod datum;
 mod ellipsoid;
 pub mod epsg;
 mod error;
+mod fallback;
 mod ntv2;
 mod projection;
 mod transform;
@@ -16,6 +22,7 @@ pub use datum::{
     transform_datum,
 };
 pub use ellipsoid::Ellipsoid;
+pub use epsg::Support;
 pub use error::Error;
 pub use ntv2::{NTv2Grid, SubGrid};
 pub use projection::{

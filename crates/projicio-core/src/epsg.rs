@@ -17,7 +17,10 @@ pub enum Support {
     Native,
     /// The embedded proj4 definition table, transformed by proj4rs.
     Fallback,
-    /// No definition available for this code.
+    /// The definition names a datum shift grid that has not been registered.
+    /// Registering it with [`crate::grids::register_file`] makes the code usable.
+    NeedsGrid,
+    /// No definition available, or one projicio cannot build.
     Unsupported,
 }
 
@@ -214,13 +217,15 @@ pub fn is_native(code: u32) -> bool {
 /// [`Support::Fallback`] is only reported when the embedded definition actually
 /// builds, since proj4rs implements a subset of proj's projection methods and the
 /// table contains codes it cannot construct.
+///
+/// The answer depends on which grids are registered: a code whose definition names a
+/// datum shift grid reports [`Support::NeedsGrid`] until that grid is registered, and
+/// [`Support::Fallback`] afterwards.
 pub fn support(code: u32) -> Support {
     if is_native(code) {
         Support::Native
-    } else if crate::fallback::build(code).is_ok() {
-        Support::Fallback
     } else {
-        Support::Unsupported
+        crate::fallback::classify(code)
     }
 }
 
@@ -315,6 +320,13 @@ mod tests {
     #[test]
     fn test_support_unsupported() {
         assert_eq!(support(99999), Support::Unsupported);
+    }
+
+    #[test]
+    fn test_support_needs_grid() {
+        // No grid is registered in this test binary, so NAD27 codes must say so.
+        assert_eq!(support(4267), Support::NeedsGrid);
+        assert_eq!(support(32040), Support::NeedsGrid);
     }
 
     #[test]

@@ -230,12 +230,13 @@ fn test_support_reports_unsupported_for_garbage_codes() {
 }
 
 #[test]
-fn test_support_reports_unsupported_when_definition_needs_a_grid() {
+fn test_support_reports_needs_grid_when_definition_needs_a_grid() {
     // NAD27 resolves to a nadgrids definition and projicio embeds no grids, so these
-    // codes have a definition but no working transform. support() must say so rather
-    // than promise a transform that fails later.
+    // codes have a definition but no working transform until a grid is registered.
+    // No grid is registered in this test binary, see tests/grids.rs for the other half.
     assert!(epsg::proj4_definition(4267).is_some());
-    assert_eq!(epsg::support(4267), Support::Unsupported);
+    assert_eq!(epsg::support(4267), Support::NeedsGrid);
+    assert_eq!(epsg::support(32040), Support::NeedsGrid);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -259,18 +260,42 @@ fn test_garbage_code_as_source_errors_cleanly() {
 
 #[test]
 fn test_non_numeric_crs_errors_cleanly() {
-    for bad in ["", "EPSG:", "EPSG:abc", "nonsense", "+proj=merc", "EPSG:-1"] {
+    for bad in ["", "EPSG:", "EPSG:abc", "nonsense", "EPSG:-1"] {
         let err = Transform::new(bad, "EPSG:4326").unwrap_err();
         assert!(err.to_string().contains("unsupported CRS"), "{bad}");
     }
 }
 
 #[test]
-fn test_grid_backed_code_errors_cleanly() {
+fn test_projstring_source_is_accepted() {
+    // A projstring is how a caller reaches a CRS the embedded table does not describe,
+    // including one that names its own datum shift grid.
+    let t = Transform::new("+proj=longlat +ellps=GRS80", "EPSG:3035").unwrap();
+    assert_eq!(t.path(), Support::Fallback);
+    let (e, n) = t.convert(5.0, 50.0).unwrap();
+    // Same IOGP worked example as above, reached without an EPSG code.
+    assert!((e - 3_962_799.45).abs() < 0.01, "easting {e}");
+    assert!((n - 2_999_718.85).abs() < 0.01, "northing {n}");
+}
+
+#[test]
+fn test_bad_projstring_errors_cleanly() {
+    for bad in ["+proj=nonsuch", "+proj=", "+ellps=WGS84"] {
+        let err = Transform::new(bad, "EPSG:4326").unwrap_err();
+        assert!(
+            err.to_string().contains("unsupported CRS"),
+            "{bad} gave {err}"
+        );
+    }
+}
+
+#[test]
+fn test_grid_backed_code_reports_a_grid_error() {
     let err = Transform::new("EPSG:4326", "EPSG:4267").unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("unsupported CRS"), "{msg}");
+    assert!(msg.contains("grid error"), "{msg}");
     assert!(msg.contains("4267"), "{msg}");
+    assert!(msg.contains("not registered"), "{msg}");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

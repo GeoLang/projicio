@@ -7,12 +7,17 @@
 //! Anything else resolves through an embedded proj4 definition table covering the
 //! wider EPSG registry, transformed by the pure-Rust proj4rs engine. Ask
 //! [`epsg::support`] which path a code takes.
+//!
+//! No grid data is embedded. Codes whose definition names a datum shift grid report
+//! [`Support::NeedsGrid`] until the caller supplies the `.gsb` file through
+//! [`grids::register_file`].
 
 mod datum;
 mod ellipsoid;
 pub mod epsg;
 mod error;
 mod fallback;
+pub mod grids;
 mod ntv2;
 mod projection;
 mod transform;

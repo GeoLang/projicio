@@ -7,15 +7,45 @@
 //! so angles are converted on the way in and out.
 
 use crate::Error;
+use crate::epsg::Support;
 use proj4rs::Proj;
 
 /// Largest EPSG code the embedded table can hold, since it is keyed by `u16`.
 const MAX_TABLE_CODE: u32 = u16::MAX as u32;
 
+/// What a caller asked to transform between.
+pub enum Spec {
+    /// An EPSG code, resolved through the embedded definition table.
+    Epsg(u32),
+    /// A proj4 projstring, used as given. This is how a caller names a datum shift
+    /// grid the embedded definition does not mention, with `+nadgrids=`.
+    Proj4(String),
+}
+
+impl Spec {
+    /// The proj4 definition this spec resolves to.
+    fn definition(&self) -> Result<&str, Error> {
+        match self {
+            Spec::Epsg(code) => {
+                proj4_definition(*code).ok_or_else(|| Error::UnsupportedCrs(format!("EPSG:{code}")))
+            }
+            Spec::Proj4(s) => Ok(s),
+        }
+    }
+
+    fn label(&self) -> String {
+        match self {
+            Spec::Epsg(code) => format!("EPSG:{code}"),
+            Spec::Proj4(s) => s.clone(),
+        }
+    }
+}
+
 /// The proj4 definition string for an EPSG code, if the embedded table has one.
 ///
 /// A string here does not guarantee a working transform: proj4rs implements a
-/// subset of proj's projections, so [`build`] can still fail.
+/// subset of proj's projections, and some definitions need a datum shift grid that
+/// has not been registered. `crate::epsg::support` reports which case applies.
 pub fn proj4_definition(code: u32) -> Option<&'static str> {
     if code > MAX_TABLE_CODE {
         return None;
@@ -23,18 +53,32 @@ pub fn proj4_definition(code: u32) -> Option<&'static str> {
     crs_definitions::from_code(code as u16).map(|def| def.proj4)
 }
 
-/// Build a proj4rs projection for an EPSG code.
-pub fn build(code: u32) -> Result<Proj, Error> {
-    let def =
-        proj4_definition(code).ok_or_else(|| Error::UnsupportedCrs(format!("EPSG:{code}")))?;
-    Proj::from_proj_string(def).map_err(|e| {
-        Error::UnsupportedCrs(format!(
-            "EPSG:{code} ({def}) is not supported by proj4rs: {e}"
-        ))
+/// Build a proj4rs projection for a spec.
+pub fn build(spec: &Spec) -> Result<Proj, Error> {
+    let def = spec.definition()?;
+    Proj::from_proj_string(def).map_err(|e| match e {
+        // The definition names a grid and no registered grid answered to the name.
+        proj4rs::errors::Error::NadGridNotAvailable => Error::GridError(format!(
+            "{} needs a datum shift grid that is not registered, its definition is {def:?}",
+            spec.label()
+        )),
+        e => Error::UnsupportedCrs(format!(
+            "{} ({def}) is not supported by proj4rs: {e}",
+            spec.label()
+        )),
     })
 }
 
-/// A transform between two EPSG codes resolved through the embedded proj4 table.
+/// Which engine, if any, can handle an EPSG code through the fallback path.
+pub fn classify(code: u32) -> Support {
+    match build(&Spec::Epsg(code)) {
+        Ok(_) => Support::Fallback,
+        Err(Error::GridError(_)) => Support::NeedsGrid,
+        Err(_) => Support::Unsupported,
+    }
+}
+
+/// A transform between two CRS resolved through proj4rs.
 pub struct Proj4Transform {
     src: Proj,
     dst: Proj,
@@ -43,17 +87,19 @@ pub struct Proj4Transform {
 }
 
 impl Proj4Transform {
-    pub fn new(from: u32, to: u32) -> Result<Self, Error> {
+    pub fn new(from: &Spec, to: &Spec) -> Result<Self, Error> {
         let src = build(from)?;
         let dst = build(to)?;
         if !src.has_inverse() {
             return Err(Error::UnsupportedCrs(format!(
-                "EPSG:{from} has no inverse projection"
+                "{} has no inverse projection",
+                from.label()
             )));
         }
         if !dst.has_forward() {
             return Err(Error::UnsupportedCrs(format!(
-                "EPSG:{to} has no forward projection"
+                "{} has no forward projection",
+                to.label()
             )));
         }
         Ok(Self {
@@ -107,7 +153,21 @@ mod tests {
 
     #[test]
     fn test_build_unknown_code_errors() {
-        let err = build(65000).unwrap_err();
+        let err = build(&Spec::Epsg(65000)).unwrap_err();
         assert!(matches!(err, Error::UnsupportedCrs(_)));
+    }
+
+    #[test]
+    fn test_build_proj4_string() {
+        assert!(build(&Spec::Proj4("+proj=merc +ellps=WGS84".into())).is_ok());
+        assert!(build(&Spec::Proj4("+proj=nonsuch".into())).is_err());
+    }
+
+    #[test]
+    fn test_grid_backed_definition_reports_needs_grid() {
+        // NAD27 resolves to a nadgrids list, so without a registered grid this must be
+        // distinguishable from a projection projicio simply cannot do.
+        let err = build(&Spec::Epsg(4267)).unwrap_err();
+        assert!(matches!(err, Error::GridError(_)), "{err}");
     }
 }

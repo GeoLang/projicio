@@ -1,5 +1,5 @@
 use crate::epsg::{self, Support};
-use crate::fallback::Proj4Transform;
+use crate::fallback::{Proj4Transform, Spec};
 use crate::{Coord, Error, Geographic, projection::*};
 
 type InverseFn = Box<dyn Fn(Coord) -> Result<Geographic, Error> + Send + Sync>;
@@ -26,22 +26,27 @@ pub struct Transform {
 }
 
 impl Transform {
-    /// Create a transform between two EPSG codes.
+    /// Create a transform between two CRS.
     ///
-    /// Both codes take projicio's native path when it covers them, otherwise the
+    /// Each side is either an EPSG code, as `"EPSG:4326"` or `"4326"`, or a proj4
+    /// projstring starting with `+`. A projstring is the way to name a datum shift
+    /// grid the embedded definition does not mention, with `+nadgrids=`.
+    ///
+    /// Both sides take projicio's native path when it covers them, otherwise the
     /// whole transform is handed to the embedded proj4 fallback so datum shifts
     /// stay consistent across the pair.
     pub fn new(from: &str, to: &str) -> Result<Self, Error> {
-        let source_epsg = parse_epsg(from)?;
-        let target_epsg = parse_epsg(to)?;
+        let source = parse_spec(from)?;
+        let target = parse_spec(to)?;
 
-        let engine = if epsg::is_native(source_epsg) && epsg::is_native(target_epsg) {
-            Engine::Native {
-                source_to_geo: make_inverse(source_epsg)?,
-                geo_to_target: make_forward(target_epsg)?,
+        let engine = match (&source, &target) {
+            (Spec::Epsg(s), Spec::Epsg(t)) if epsg::is_native(*s) && epsg::is_native(*t) => {
+                Engine::Native {
+                    source_to_geo: make_inverse(*s)?,
+                    geo_to_target: make_forward(*t)?,
+                }
             }
-        } else {
-            Engine::Fallback(Box::new(Proj4Transform::new(source_epsg, target_epsg)?))
+            _ => Engine::Fallback(Box::new(Proj4Transform::new(&source, &target)?)),
         };
 
         Ok(Self { engine })
@@ -83,6 +88,15 @@ impl std::fmt::Debug for Transform {
         f.debug_struct("Transform")
             .field("path", &self.path())
             .finish()
+    }
+}
+
+fn parse_spec(s: &str) -> Result<Spec, Error> {
+    let trimmed = s.trim();
+    if trimmed.starts_with('+') {
+        Ok(Spec::Proj4(trimmed.to_string()))
+    } else {
+        parse_epsg(trimmed).map(Spec::Epsg)
     }
 }
 

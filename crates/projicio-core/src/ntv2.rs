@@ -9,6 +9,10 @@ use std::io::Read;
 ///
 /// File format: binary with big-endian or little-endian records.
 /// Each sub-grid contains shift values (in arc-seconds) at regular intervals.
+///
+/// This is a standalone reader for inspecting a grid directly. It is not what
+/// [`crate::Transform`] uses: to make a transform apply a grid, register the file with
+/// [`crate::grids::register_file`].
 #[derive(Debug, Clone)]
 pub struct NTv2Grid {
     pub sub_grids: Vec<SubGrid>,

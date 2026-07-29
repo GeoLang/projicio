@@ -11,4 +11,7 @@ pub enum Error {
 
     #[error("projection error: {0}")]
     ProjectionError(String),
+
+    #[error("grid error: {0}")]
+    GridError(String),
 }

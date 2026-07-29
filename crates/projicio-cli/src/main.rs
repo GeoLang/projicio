@@ -4,6 +4,11 @@ use projicio_core::Support;
 #[derive(Parser)]
 #[command(name = "projicio", about = "Coordinate transformation CLI")]
 struct Cli {
+    /// Register an NTv2 datum shift grid as NAME=PATH, repeatable
+    /// (e.g. --grid conus=/data/conus.gsb)
+    #[arg(long, global = true, value_name = "NAME=PATH")]
+    grid: Vec<String>,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -12,10 +17,10 @@ struct Cli {
 enum Commands {
     /// Transform coordinates between CRS
     Transform {
-        /// Source CRS (e.g. EPSG:4326)
+        /// Source CRS (EPSG code, or a proj4 projstring starting with +)
         #[arg(long)]
         from: String,
-        /// Target CRS (e.g. EPSG:3857)
+        /// Target CRS (EPSG code, or a proj4 projstring starting with +)
         #[arg(long)]
         to: String,
         /// X coordinate (or longitude)
@@ -33,14 +38,27 @@ enum Commands {
 fn main() {
     let cli = Cli::parse();
 
+    for spec in &cli.grid {
+        let Some((name, path)) = spec.split_once('=') else {
+            eprintln!("Error: --grid wants NAME=PATH, got {spec:?}");
+            std::process::exit(1);
+        };
+        if let Err(e) = projicio_core::grids::register_file(name, path) {
+            eprintln!("Error: {e}");
+            std::process::exit(1);
+        }
+    }
+
     match cli.command {
-        Commands::Transform { from, to, x, y } => match projicio_core::Transform::new(&from, &to) {
-            Ok(t) => match t.convert(x, y) {
+        Commands::Transform { from, to, x, y } => {
+            match projicio_core::Transform::new(&from, &to).and_then(|t| t.convert(x, y)) {
                 Ok((rx, ry)) => println!("{rx} {ry}"),
-                Err(e) => eprintln!("Error: {e}"),
-            },
-            Err(e) => eprintln!("Error: {e}"),
-        },
+                Err(e) => {
+                    eprintln!("Error: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
         Commands::Info { crs } => info(&crs),
     }
 }
@@ -56,6 +74,7 @@ fn info(crs: &str) {
     match support {
         Support::Native => println!("support: native"),
         Support::Fallback => println!("support: fallback (proj4rs)"),
+        Support::NeedsGrid => println!("support: needs an unregistered datum shift grid"),
         Support::Unsupported => println!("support: none"),
     }
     if let Some(name) = projicio_core::epsg::lookup(code).map(|d| d.name) {
@@ -64,7 +83,7 @@ fn info(crs: &str) {
     if let Some(proj4) = projicio_core::epsg::proj4_definition(code) {
         println!("proj4: {proj4}");
     }
-    if support == Support::Unsupported {
+    if support == Support::Unsupported || support == Support::NeedsGrid {
         std::process::exit(1);
     }
 }

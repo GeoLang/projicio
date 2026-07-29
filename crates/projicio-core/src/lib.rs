@@ -18,7 +18,6 @@ pub mod epsg;
 mod error;
 mod fallback;
 pub mod grids;
-mod ntv2;
 mod projection;
 mod transform;
 
@@ -29,7 +28,6 @@ pub use datum::{
 pub use ellipsoid::Ellipsoid;
 pub use epsg::Support;
 pub use error::Error;
-pub use ntv2::{NTv2Grid, SubGrid};
 pub use projection::{
     AlbersEqualArea, LambertConformalConic, Mercator, PolarStereographic, Projection,
     TransverseMercator, WebMercator,

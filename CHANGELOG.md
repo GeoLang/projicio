@@ -30,6 +30,11 @@ All notable changes to this project will be documented in this file.
   a grid the embedded definition does not mention, as OSTN15 needs for EPSG:27700.
 - `projicio --grid NAME=PATH` registers a grid from the CLI, repeatable.
 
+### Removed
+
+- The standalone `NTv2Grid` and `SubGrid` reader. Nothing used it, and grid shifts now
+  run through the registration path, which parses with proj4rs.
+
 ### Changed
 
 - `Transform::new` uses the native path when both codes are native, otherwise hands the

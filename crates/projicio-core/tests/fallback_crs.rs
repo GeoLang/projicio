@@ -279,6 +279,24 @@ fn test_projstring_source_is_accepted() {
 }
 
 #[test]
+fn test_aeqd_projstring_keeps_distance_from_center() {
+    // geodukt buffers in a local aeqd plane so metric distances hold in any crs
+    let t = Transform::new("EPSG:4326", "+proj=aeqd +lat_0=45 +lon_0=7 +ellps=WGS84").unwrap();
+    let (x, y) = t.convert(7.0, 45.0).unwrap();
+    assert!(
+        x.abs() < 1e-6 && y.abs() < 1e-6,
+        "center maps to origin, got ({x}, {y})"
+    );
+    // one degree north of center, the northing is the meridian arc length
+    let (x, y) = t.convert(7.0, 46.0).unwrap();
+    assert!(
+        x.abs() < 1e-3,
+        "meridian point stays on the y axis, got {x}"
+    );
+    assert!((y - 111_131.8).abs() < 10.0, "northing {y}");
+}
+
+#[test]
 fn test_bad_projstring_errors_cleanly() {
     for bad in ["+proj=nonsuch", "+proj=", "+ellps=WGS84"] {
         let err = Transform::new(bad, "EPSG:4326").unwrap_err();

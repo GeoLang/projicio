@@ -99,12 +99,27 @@ impl HelmertTransform {
     }
 
     /// Apply inverse transformation (target datum → source datum).
+    ///
+    /// This undoes [`Self::forward`] exactly, by transposing the rotation and
+    /// dividing out the scale, rather than negating the parameters. Negated
+    /// parameters leave a centimetre-level residue at the rotations national
+    /// grids use, and proj does it this way too.
     pub fn inverse(&self, coord: &GeocentricCoord) -> GeocentricCoord {
-        // Inverse is the same formula with negated parameters
-        let inv = Self::new(
-            -self.dx, -self.dy, -self.dz, -self.rx, -self.ry, -self.rz, -self.ds,
-        );
-        inv.forward(coord)
+        let as_to_rad = std::f64::consts::PI / (180.0 * 3600.0);
+        let rx = self.rx * as_to_rad;
+        let ry = self.ry * as_to_rad;
+        let rz = self.rz * as_to_rad;
+        let s = 1.0 + self.ds * 1e-6;
+
+        let x = (coord.x - self.dx) / s;
+        let y = (coord.y - self.dy) / s;
+        let z = (coord.z - self.dz) / s;
+
+        GeocentricCoord {
+            x: x + rz * y - ry * z,
+            y: -rz * x + y + rx * z,
+            z: ry * x - rx * y + z,
+        }
     }
 }
 

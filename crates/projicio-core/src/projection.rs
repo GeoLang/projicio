@@ -1,5 +1,12 @@
 use crate::{Coord, Ellipsoid, Error, Geographic};
 
+mod cassini_soldner;
+mod hotine_oblique_mercator;
+mod series;
+
+pub use cassini_soldner::CassiniSoldner;
+pub use hotine_oblique_mercator::HotineObliqueMercator;
+
 /// Trait for map projections (geographic → projected and inverse).
 pub trait Projection {
     /// Project geographic coordinates (lon/lat in radians) to planar (x, y) in meters.

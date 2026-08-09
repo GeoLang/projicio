@@ -1,9 +1,21 @@
 use crate::epsg::{self, Support};
 use crate::fallback::{Proj4Transform, Spec};
+use crate::projstring::{self, NativeCrs};
 use crate::{Coord, Error, Geographic, projection::*};
 
 type InverseFn = Box<dyn Fn(Coord) -> Result<Geographic, Error> + Send + Sync>;
 type ForwardFn = Box<dyn Fn(Geographic) -> Result<Coord, Error> + Send + Sync>;
+/// Projected coordinate to hub longitude, latitude and ellipsoidal height.
+type ToHubFn = Box<dyn Fn(f64, f64) -> Result<(f64, f64, f64), Error> + Send + Sync>;
+/// Hub longitude, latitude and ellipsoidal height to projected coordinate.
+type FromHubFn = Box<dyn Fn(f64, f64, f64) -> Result<(f64, f64), Error> + Send + Sync>;
+
+/// The geographic CRS a hub transform meets at when neither side carries a
+/// datum, which is what makes proj skip the shift for the pair.
+const NO_DATUM_HUB: &str = "+proj=longlat +ellps=WGS84 +no_defs";
+
+/// The hub itself when both sides carry a datum.
+const WGS84_GEOGRAPHIC: u32 = 4326;
 
 /// The engine doing the work for a given pair of codes.
 enum Engine {
@@ -18,6 +30,25 @@ enum Engine {
     /// Boxed because a pair of proj4rs projections is over a kilobyte, which would
     /// otherwise set the size of every `Transform`.
     Fallback(Box<Proj4Transform>),
+    /// At least one side is built natively from its embedded proj4 definition,
+    /// so the two sides meet at WGS84 geographic. Each side reaches the hub on
+    /// its own, which is what keeps a mixed pair from shifting datum twice.
+    Hub {
+        source_to_hub: ToHubFn,
+        hub_to_target: FromHubFn,
+        /// False when proj4rs serves one of the two sides.
+        native_only: bool,
+    },
+}
+
+/// How one side of a pair reaches WGS84 geographic.
+enum Leg {
+    /// Built from the embedded proj4 definition by projicio's own math.
+    FromDefinition(NativeCrs),
+    /// One of the codes projicio has always dispatched natively.
+    HandWritten(u32),
+    /// Anything else, handed to proj4rs against the hub.
+    Proj4rs,
 }
 
 /// High-level transform between two CRS identified by EPSG codes.
@@ -40,17 +71,41 @@ impl Transform {
         let source = parse_spec(from)?;
         let target = parse_spec(to)?;
 
-        let engine = match (&source, &target) {
-            (Spec::Epsg(s), Spec::Epsg(t)) if epsg::is_native(*s) && epsg::is_native(*t) => {
-                Engine::Native {
-                    source_to_geo: make_inverse(*s)?,
-                    geo_to_target: make_forward(*t)?,
-                }
+        if let (Spec::Epsg(s), Spec::Epsg(t)) = (&source, &target) {
+            if epsg::is_native(*s) && epsg::is_native(*t) {
+                return Ok(Self {
+                    engine: Engine::Native {
+                        source_to_geo: make_inverse(*s)?,
+                        geo_to_target: make_forward(*t)?,
+                    },
+                });
             }
-            _ => Engine::Fallback(Box::new(Proj4Transform::new(&source, &target)?)),
-        };
+        }
 
-        Ok(Self { engine })
+        let source_leg = make_leg(&source);
+        let target_leg = make_leg(&target);
+        if !matches!(source_leg, Leg::FromDefinition(_))
+            && !matches!(target_leg, Leg::FromDefinition(_))
+        {
+            return Ok(Self {
+                engine: Engine::Fallback(Box::new(Proj4Transform::new(&source, &target)?)),
+            });
+        }
+
+        // proj skips the datum shift entirely when either side names no datum,
+        // so the hub has to be datum-free too or the other side would shift alone
+        let shift_datums =
+            names_a_datum(&source, &source_leg) && names_a_datum(&target, &target_leg);
+        let native_only =
+            !matches!(source_leg, Leg::Proj4rs) && !matches!(target_leg, Leg::Proj4rs);
+
+        Ok(Self {
+            engine: Engine::Hub {
+                source_to_hub: make_to_hub(&source, source_leg, shift_datums)?,
+                hub_to_target: make_from_hub(&target, target_leg, shift_datums)?,
+                native_only,
+            },
+        })
     }
 
     /// Which engine this transform resolved to.
@@ -60,6 +115,13 @@ impl Transform {
         match self.engine {
             Engine::Native { .. } => Support::Native,
             Engine::Fallback(_) => Support::Fallback,
+            Engine::Hub { native_only, .. } => {
+                if native_only {
+                    Support::Native
+                } else {
+                    Support::Fallback
+                }
+            }
         }
     }
 
@@ -75,6 +137,14 @@ impl Transform {
                 Ok((result.x, result.y))
             }
             Engine::Fallback(t) => t.convert(x, y),
+            Engine::Hub {
+                source_to_hub,
+                hub_to_target,
+                ..
+            } => {
+                let (lon, lat, height) = source_to_hub(x, y)?;
+                hub_to_target(lon, lat, height)
+            }
         }
     }
 
@@ -131,6 +201,101 @@ fn parse_epsg(code: &str) -> Result<u32, Error> {
     num_str
         .parse::<u32>()
         .map_err(|_| Error::UnsupportedCrs(code.to_string()))
+}
+
+/// How a side of the pair reaches the hub.
+///
+/// Only codes the fallback engine cannot serve today take the definition path,
+/// so no code changes the engine it already resolved to.
+fn make_leg(spec: &Spec) -> Leg {
+    let Spec::Epsg(code) = spec else {
+        return Leg::Proj4rs;
+    };
+    if epsg::is_native(*code) {
+        return Leg::HandWritten(*code);
+    }
+    let native = epsg::proj4_definition(*code).and_then(|def| NativeCrs::from_definition(def).ok());
+    match native {
+        Some(crs) if crate::fallback::classify(*code) == Support::Unsupported => {
+            Leg::FromDefinition(crs)
+        }
+        _ => Leg::Proj4rs,
+    }
+}
+
+fn names_a_datum(spec: &Spec, leg: &Leg) -> bool {
+    match leg {
+        Leg::FromDefinition(crs) => crs.names_a_datum(),
+        // the hand-written codes are all WGS84
+        Leg::HandWritten(_) => true,
+        Leg::Proj4rs => match spec {
+            Spec::Proj4(definition) => projstring::names_a_datum(definition),
+            Spec::Epsg(code) => {
+                epsg::proj4_definition(*code).is_some_and(projstring::names_a_datum)
+            }
+        },
+    }
+}
+
+fn hub_spec(shift_datums: bool) -> Spec {
+    if shift_datums {
+        Spec::Epsg(WGS84_GEOGRAPHIC)
+    } else {
+        Spec::Proj4(NO_DATUM_HUB.to_string())
+    }
+}
+
+fn make_to_hub(spec: &Spec, leg: Leg, shift_datums: bool) -> Result<ToHubFn, Error> {
+    match leg {
+        Leg::FromDefinition(crs) => Ok(Box::new(move |x, y| {
+            let geo = crs.to_geographic(x, y)?;
+            if !shift_datums {
+                return Ok((geo.lon, geo.lat, 0.0));
+            }
+            let (geo, height) = crs.shift_to_wgs84(geo, 0.0);
+            Ok((geo.lon, geo.lat, height))
+        })),
+        Leg::HandWritten(code) => {
+            let inverse = make_inverse(code)?;
+            Ok(Box::new(move |x, y| {
+                let geo = inverse(Coord::new(x, y))?;
+                Ok((geo.lon, geo.lat, 0.0))
+            }))
+        }
+        Leg::Proj4rs => {
+            let to_hub = Proj4Transform::new(spec, &hub_spec(shift_datums))?;
+            Ok(Box::new(move |x, y| to_hub.convert_3d(x, y, 0.0)))
+        }
+    }
+}
+
+fn make_from_hub(spec: &Spec, leg: Leg, shift_datums: bool) -> Result<FromHubFn, Error> {
+    match leg {
+        Leg::FromDefinition(crs) => Ok(Box::new(move |lon, lat, height| {
+            let geo = Geographic::new(lon, lat);
+            let geo = if shift_datums {
+                crs.shift_from_wgs84(geo, height)
+            } else {
+                geo
+            };
+            crs.from_geographic(geo)
+        })),
+        Leg::HandWritten(code) => {
+            let forward = make_forward(code)?;
+            Ok(Box::new(move |lon, lat, _height| {
+                let coord = forward(Geographic::new(lon, lat))?;
+                Ok((coord.x, coord.y))
+            }))
+        }
+        Leg::Proj4rs => {
+            let from_hub = Proj4Transform::new(&hub_spec(shift_datums), spec)?;
+            Ok(Box::new(move |lon, lat, height| {
+                from_hub
+                    .convert_3d(lon, lat, height)
+                    .map(|(x, y, _)| (x, y))
+            }))
+        }
+    }
 }
 
 fn make_inverse(epsg: u32) -> Result<InverseFn, Error> {

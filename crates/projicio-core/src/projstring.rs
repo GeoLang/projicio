@@ -6,7 +6,11 @@
 //! was silently dropped. A rejected definition leaves the EPSG code with the
 //! classification it already had.
 
-use crate::{Ellipsoid, Error, HelmertTransform};
+use crate::projection::{CassiniSoldner, HotineObliqueMercator, Projection};
+use crate::{
+    Coord, Ellipsoid, Error, GeocentricCoord, Geographic, HelmertTransform, geocentric_to_geodetic,
+    geodetic_to_geocentric,
+};
 
 /// Angles are degrees and lengths are meters, matching the rest of projicio.
 #[derive(Debug, Clone)]
@@ -132,6 +136,130 @@ const UNITS: [(&str, f64); 3] = [("m", 1.0), ("ft", 0.3048), ("link", 0.201_168)
 
 const GREENWICH: &str = "greenwich";
 const EAST_NORTH_UP: &str = "enu";
+
+/// A CRS built from a proj4 definition with projicio's own projection math.
+///
+/// Projected coordinates are in the definition's own unit. Geographic
+/// coordinates are degrees on the definition's own datum until
+/// [`Self::shift_to_wgs84`] moves them.
+pub struct NativeCrs {
+    projection: Box<dyn Projection + Send + Sync>,
+    datum_shift: DatumShift,
+    to_meter: f64,
+}
+
+impl NativeCrs {
+    /// Build from a proj4 definition, or say why projicio cannot.
+    pub fn from_definition(definition: &str) -> Result<Self, Error> {
+        Self::build(&parse(definition)?)
+    }
+
+    pub fn build(definition: &Definition) -> Result<Self, Error> {
+        let ellipsoid = definition.ellipsoid;
+        let false_easting = definition.false_easting;
+        let false_northing = definition.false_northing;
+        let projection: Box<dyn Projection + Send + Sync> = match definition.method {
+            Method::CassiniSoldner { lat_0, lon_0 } => Box::new(CassiniSoldner::new(
+                ellipsoid,
+                lat_0,
+                lon_0,
+                false_easting,
+                false_northing,
+            )),
+            Method::HotineObliqueMercator {
+                lat_c,
+                lon_c,
+                azimuth,
+                rectified_grid_angle,
+                k_0,
+                offsets_at_centre,
+            } => Box::new(HotineObliqueMercator::new(
+                ellipsoid,
+                lat_c,
+                lon_c,
+                azimuth,
+                rectified_grid_angle,
+                k_0,
+                false_easting,
+                false_northing,
+                offsets_at_centre,
+            )?),
+            other => {
+                return Err(reject(format!("{other:?} has no projicio implementation")));
+            }
+        };
+        Ok(Self {
+            projection,
+            datum_shift: definition.datum_shift.clone(),
+            to_meter: definition.to_meter,
+        })
+    }
+
+    /// True when the definition names a datum. proj skips the datum shift for a
+    /// pair where either side does not, and projicio follows it.
+    pub fn names_a_datum(&self) -> bool {
+        !self.datum_shift.is_none()
+    }
+
+    pub fn to_geographic(&self, x: f64, y: f64) -> Result<Geographic, Error> {
+        self.projection
+            .inverse(Coord::new(x * self.to_meter, y * self.to_meter))
+    }
+
+    pub fn from_geographic(&self, geo: Geographic) -> Result<(f64, f64), Error> {
+        let projected = self.projection.forward(geo)?;
+        Ok((projected.x / self.to_meter, projected.y / self.to_meter))
+    }
+
+    /// A shift moves the ellipsoidal height too, so the caller has to carry the
+    /// height it returns into whatever shifts next.
+    pub fn shift_to_wgs84(&self, geo: Geographic, height: f64) -> (Geographic, f64) {
+        let DatumShift::Helmert(helmert) = &self.datum_shift else {
+            return (geo, height);
+        };
+        let geocentric = geodetic_to_geocentric(
+            geo.lat.to_radians(),
+            geo.lon.to_radians(),
+            height,
+            self.projection.ellipsoid(),
+        );
+        let (lat, lon, height) =
+            geocentric_to_geodetic(&helmert.forward(&geocentric), &Ellipsoid::WGS84);
+        (Geographic::new(lon.to_degrees(), lat.to_degrees()), height)
+    }
+
+    pub fn shift_from_wgs84(&self, geo: Geographic, height: f64) -> Geographic {
+        let DatumShift::Helmert(helmert) = &self.datum_shift else {
+            return geo;
+        };
+        let geocentric: GeocentricCoord = geodetic_to_geocentric(
+            geo.lat.to_radians(),
+            geo.lon.to_radians(),
+            height,
+            &Ellipsoid::WGS84,
+        );
+        let (lat, lon, _) =
+            geocentric_to_geodetic(&helmert.inverse(&geocentric), self.projection.ellipsoid());
+        Geographic::new(lon.to_degrees(), lat.to_degrees())
+    }
+}
+
+impl std::fmt::Debug for NativeCrs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NativeCrs")
+            .field("to_meter", &self.to_meter)
+            .field("datum_shift", &self.datum_shift)
+            .finish()
+    }
+}
+
+/// True when a proj4 definition names a datum, by the same three parameters
+/// proj reads it from.
+pub fn names_a_datum(definition: &str) -> bool {
+    ["+towgs84=", "+datum=", "+nadgrids="]
+        .iter()
+        .any(|parameter| definition.contains(parameter))
+}
 
 /// Parse a proj4 definition, or say why projicio cannot build it natively.
 pub fn parse(definition: &str) -> Result<Definition, Error> {

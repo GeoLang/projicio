@@ -8,12 +8,15 @@ repository.workspace = true
 rust-version.workspace = true
 
 [features]
-default = ["aeqd"]
+default = ["aeqd", "registry"]
 # optional because proj4rs-geodesic does not compile on wasm32
 aeqd = ["proj4rs/aeqd"]
+# embedded EPSG metadata blob, left out of the wasm build to keep it small
+registry = ["dep:projicio-epsg-format"]
 
 [dependencies]
 crs-definitions = { version = "0.5", default-features = false, features = ["proj4"] }
+projicio-epsg-format = { workspace = true, optional = true }
 proj4rs = { version = "0.1.10", default-features = false, features = ["multi-thread", "krovak"] }
 proj4wkt = { version = "0.1.1", default-features = false }
 thiserror = "2"

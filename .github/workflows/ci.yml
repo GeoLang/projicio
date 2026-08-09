@@ -29,6 +29,36 @@ jobs:
       - name: Test
         run: cargo test --all
 
+  registry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tools/gen-epsg-registry
+      - name: Install PROJ build tools
+        run: sudo apt-get update && sudo apt-get install -y cmake sqlite3
+      - name: Committed registry regenerates byte for byte
+        run: cargo run --manifest-path tools/gen-epsg-registry/Cargo.toml -- --check
+
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build -p projicio-wasm --target wasm32-unknown-unknown --release
+      - name: Registry is not in the artifact
+        run: |
+          PROJICIO_WASM_ARTIFACT=$PWD/target/wasm32-unknown-unknown/release/projicio_wasm.wasm \
+            cargo test -p projicio-wasm --test registry_absent
+      - name: Registry crate is not even resolved
+        run: "! cargo tree -p projicio-wasm --target wasm32-unknown-unknown -e normal | grep -q projicio-epsg-format"
+
   deny:
     runs-on: ubuntu-latest
     steps:

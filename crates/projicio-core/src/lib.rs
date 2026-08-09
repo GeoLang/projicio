@@ -11,6 +11,10 @@
 //! No grid data is embedded. Codes whose definition names a datum shift grid report
 //! [`Support::NeedsGrid`] until the caller supplies the `.gsb` file through
 //! [`grids::register_file`].
+//!
+//! The `registry` feature, on by default, embeds EPSG metadata generated from
+//! PROJ's proj.db: names, kind, deprecation, datum links, and areas of use.
+//! See `epsg::metadata`.
 
 mod datum;
 mod ellipsoid;
@@ -20,6 +24,8 @@ mod fallback;
 pub mod grids;
 mod projection;
 pub mod projstring;
+#[cfg(feature = "registry")]
+mod registry;
 mod transform;
 
 pub use datum::{

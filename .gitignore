@@ -1,4 +1,5 @@
 /target
+/tools/gen-epsg-registry/target
 *.swp
 *.swo
 .DS_Store

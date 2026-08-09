@@ -10,6 +10,14 @@ use crate::ellipsoid::Ellipsoid;
 
 pub use crate::fallback::proj4_definition;
 
+/// Metadata the EPSG dataset records about a code, read from the embedded
+/// registry. It says nothing about how a coordinate is transformed, so
+/// [`support`] remains the answer to what projicio can do with a code.
+#[cfg(feature = "registry")]
+pub use crate::registry::{
+    CrsKind, CrsMetadata, DatumAlias, Extent, applies_at, datum_aliases, metadata, provenance_json,
+};
+
 /// Which engine handles transforms for an EPSG code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Support {

@@ -1,0 +1,75 @@
+name: PROJ parity
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'crates/projicio-core/**'
+      - '.github/workflows/parity.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'crates/projicio-core/**'
+      - '.github/workflows/parity.yml'
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+  # C PROJ is the reference these tests compare against, so it is built from a pinned
+  # release rather than taken from the runner image, where an image update would move
+  # the reference under us.
+  PROJ_VERSION: 9.6.2
+  PROJ_PREFIX: /home/runner/proj
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache PROJ
+        id: proj-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PROJ_PREFIX }}
+          key: proj-${{ env.PROJ_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Install PROJ build dependencies
+        if: steps.proj-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake sqlite3 libsqlite3-dev libtiff-dev libcurl4-openssl-dev
+
+      - name: Build PROJ ${{ env.PROJ_VERSION }}
+        if: steps.proj-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -sSfL "https://download.osgeo.org/proj/proj-${PROJ_VERSION}.tar.gz" -o proj.tar.gz
+          tar xzf proj.tar.gz
+          cmake -S "proj-${PROJ_VERSION}" -B proj-build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="${PROJ_PREFIX}" \
+            -DBUILD_TESTING=OFF
+          cmake --build proj-build --parallel "$(nproc)"
+          cmake --install proj-build
+
+      - name: Put PROJ on the environment
+        run: |
+          echo "LD_LIBRARY_PATH=${PROJ_PREFIX}/lib:${PROJ_PREFIX}/lib64:${LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+          echo "PROJ_DATA=${PROJ_PREFIX}/share/proj" >> "$GITHUB_ENV"
+          echo "PROJICIO_CS2CS=${PROJ_PREFIX}/bin/cs2cs" >> "$GITHUB_ENV"
+
+      - name: cs2cs version
+        run: |
+          # cs2cs prints its release on the first line of its usage and then exits
+          # nonzero, there is no --version flag
+          "$PROJICIO_CS2CS" -h 2>&1 | head -1 || true
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Parity tests
+        run: cargo test -p projicio-core --test proj_parity -- --ignored

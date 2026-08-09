@@ -11,6 +11,10 @@ authors = ["GeoLang <tiletopia@proton.me>"]
 description = "Coordinate reference system transformations"
 rust-version = "1.85"
 
+[patch.crates-io]
+# NTv2 parsing on wasm32, until proj4rs 0.2.0 ships it upstream
+proj4rs = { git = "https://github.com/GeoLang/proj4rs", rev = "40e508c15f15c6c0a4955555a9ca7693cde98702" }
+
 [workspace.dependencies]
 proptest = "1"
 criterion = { version = "0.5", features = ["html_reports"] }

@@ -284,7 +284,7 @@ Ask for any other code with `projicio info EPSG:<code>` or `epsg::support(code)`
 ## Credits
 
 The Cassini-Soldner, Hotine Oblique Mercator, American Polyconic, Equal Earth and Laborde
-implementations are ported from [proj-rust](https://github.com/pka/proj-rust), used under
+implementations are ported from [proj-rust](https://github.com/roteiro-gis/proj-rust), used under
 its MIT OR Apache-2.0 license.
 
 ## License

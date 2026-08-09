@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
   no projection method for. `epsg::support` reports `Support::Native` for them and
   `Transform` projects them with projicio's own math. Cassini-Soldner, Hotine Oblique
   Mercator, American Polyconic, Equal Earth and Laborde are ported from
-  [proj-rust](https://github.com/pka/proj-rust) under its MIT OR Apache-2.0 license and
+  [proj-rust](https://github.com/roteiro-gis/proj-rust) under its MIT OR Apache-2.0 license and
   exposed as `CassiniSoldner`, `HotineObliqueMercator`, `AmericanPolyconic`, `EqualEarth`
   and `Laborde`.
 - `projstring::parse` reads a proj4 definition into projection parameters, rejecting any
@@ -47,15 +47,35 @@ All notable changes to this project will be documented in this file.
   a grid the embedded definition does not mention, as OSTN15 needs for EPSG:27700.
 - `projicio --grid NAME=PATH` registers a grid from the CLI, repeatable.
 - `projicio-wasm`: WebAssembly bindings exposing `transform_coordinates(from, to, [x0,
-  y0, ...])`, built with `wasm-pack --target web`. The `grids` module is compiled out on
-  wasm32 (proj4rs has no grid reader there), and the new default-on `aeqd` feature of
+  y0, ...])`, built with `wasm-pack --target web`. The new default-on `aeqd` feature of
   `projicio-core` is off in the wasm build because `proj4rs-geodesic` does not compile
   on wasm32.
+- Grid registration works on wasm32. `proj4rs` is pinned to a patched fork
+  (GeoLang/proj4rs, branch `geolang-0.1.10-wasm-grids`) that compiles its NTv2 parser
+  there; the pin retires when upstream releases 0.2.0. `projicio-wasm` exports
+  `register_grid(name, bytes)`, `registered_grids()` and `missing_grids(spec)`.
+- `grids::missing_grids` reports the datum shift grids a CRS definition still needs,
+  none meaning registration is not what blocks it. The names are alternatives: any one
+  of them satisfies the definition.
+- Parity suite against C PROJ: `tests/proj_parity.rs` runs a corpus of native, fallback,
+  datum shift and definition-built cases through a `cs2cs` binary named by
+  `PROJICIO_CS2CS` and compares live, with no expected coordinates checked in. A weekly
+  CI workflow runs it against a pinned PROJ built from source.
+- Binary EPSG metadata registry behind the default-on `registry` feature:
+  `epsg::metadata`, `epsg::applies_at`, `epsg::datum_aliases` and
+  `epsg::provenance_json` serve names, deprecation flags, areas of use and datum
+  aliases for 7627 CRS, generated from PROJ's `proj.db` by `tools/gen-epsg-registry`
+  with a provenance manifest, and reproduced byte for byte in CI. Excluded from the
+  wasm build. Contains data from the EPSG Dataset, © IOGP, via PROJ.
 
 ### Fixed
 
 - `epsg::parse_wkt_epsg` on nested WKT returned the first `AUTHORITY`/`ID` code it saw,
   which is the datum's or spheroid's, not the CRS's. It now takes the last one.
+- `LambertConformalConic::inverse` recovered every longitude offset by a constant, from
+  swapped `atan2` arguments. Found by the parity suite; no roundtrip test existed.
+- `PolarStereographic` scale was out by 0.17 percent (a fourth root where the formula
+  needs a square root), and the south aspect mirrored the easting sign.
 
 ### Removed
 

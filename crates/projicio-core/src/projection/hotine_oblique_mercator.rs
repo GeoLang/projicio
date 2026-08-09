@@ -1,4 +1,4 @@
-// ported from proj-rust (https://github.com/pka/proj-rust), MIT OR Apache-2.0
+// ported from proj-rust (https://github.com/roteiro-gis/proj-rust), MIT OR Apache-2.0
 
 use crate::projection::Projection;
 use crate::{Coord, Ellipsoid, Error, Geographic};

@@ -93,6 +93,44 @@ The 12 remaining gaps are a projection method nobody here implements (`cea`, `nz
 prime meridian other than Greenwich, or an empty definition. The rest need a grid file you
 supply.
 
+## EPSG metadata
+
+Separately from what it can transform, projicio embeds what the EPSG dataset says about
+every EPSG CRS: its name, whether it is geographic or projected, whether EPSG has
+deprecated it, the geodetic datum it is referenced to, and the area it is meant to be
+used in.
+
+```rust
+use projicio_core::epsg;
+
+let zone = epsg::metadata(32618).unwrap();
+assert_eq!(zone.name, "WGS 84 / UTM zone 18N");
+assert!(!zone.deprecated);
+
+// New York is inside zone 18N, Paris is not
+assert_eq!(epsg::applies_at(32618, -74.0, 40.7), Some(true));
+assert_eq!(epsg::applies_at(32618, 2.35, 48.85), Some(false));
+```
+
+A coordinate outside a CRS's area of use still transforms. `applies_at` reports what EPSG
+intends the code for, not what projicio will do with it, and answers `None` when EPSG
+records no area of use.
+
+This is metadata only. Which engine transforms a code, and whether it can, is still
+`epsg::support`.
+
+The data is a binary blob generated from PROJ's proj.db by `tools/gen-epsg-registry`, a
+package outside the workspace so that building or testing projicio never builds PROJ.
+`crates/projicio-core/data/epsg.provenance.json` records the EPSG and PROJ versions it
+came from, its checksum and its record counts, and CI regenerates the blob from a pinned
+PROJ build to prove it still matches byte for byte.
+
+Turn the `registry` feature off to leave the blob out. The wasm bindings already do.
+
+Contains data from the EPSG Dataset, © IOGP, at the version recorded in the provenance
+file, obtained through PROJ's proj.db. Terms of use are at
+[epsg.org](https://epsg.org/terms-of-use.html).
+
 ## Datum shift grids
 
 projicio embeds no grid data. A definition that names a grid transforms only once you
@@ -174,8 +212,9 @@ definition itself asks for.
 ## Architecture
 
 ```
-projicio-core    — Projection math, ellipsoids, datum transforms, NTv2, CRS registry, fallback engine
-projicio-cli     — Command-line interface
+projicio-core        — Projection math, ellipsoids, datum transforms, NTv2, CRS registry, fallback engine
+projicio-epsg-format — Binary layout of the embedded EPSG metadata registry
+projicio-cli         — Command-line interface
 ```
 
 ## Supported CRS

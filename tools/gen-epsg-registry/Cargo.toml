@@ -1,0 +1,21 @@
+# its own workspace root, so `cargo test --all` in projicio never builds PROJ
+[workspace]
+
+[package]
+name = "gen-epsg-registry"
+description = "Generates projicio's embedded EPSG metadata registry from PROJ's proj.db"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+projicio-epsg-format = { path = "../../crates/projicio-epsg-format" }
+# builds PROJ from source so the registry is generated from a pinned proj.db
+# rather than whatever the build machine has installed
+proj-sys = { version = "0.27", features = ["bundled_proj"] }
+# libsqlite3-sys 0.35, the newest proj-sys accepts
+rusqlite = { version = "0.37", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

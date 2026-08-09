@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "generator": {
+    "name": "gen-epsg-registry",
+    "version": "0.1.0"
+  },
+  "registry_format": {
+    "magic": "EPSGMETA",
+    "version": 1
+  },
+  "source_database": {
+    "kind": "PROJ proj.db",
+    "file_name": "proj.db",
+    "epsg_version": "v12.013",
+    "proj_version": "9.6.2",
+    "normalized_content_sha256": "sha256:910dded405b766e7fb8d80be9bfe942ff83c52ea022068bc96db0f5e1f57fa28"
+  },
+  "output": {
+    "file_name": "epsg.bin",
+    "byte_len": 571923,
+    "sha256": "sha256:67f6cde97d90660a2c5c4764ac25ddf2267eb424d56a87ee040202332a062032"
+  },
+  "counts": {
+    "crs": 7627,
+    "extents": 2820,
+    "datum_aliases": 1810
+  }
+}

@@ -1,6 +1,5 @@
 [workspace]
 members = ["crates/*"]
-exclude = ["tools/gen-epsg-registry"]
 resolver = "2"
 
 [workspace.package]

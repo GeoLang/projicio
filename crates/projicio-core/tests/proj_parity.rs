@@ -11,7 +11,7 @@
 
 use projicio_core::{
     AlbersEqualArea, Coord, Ellipsoid, Geographic, LambertConformalConic, Mercator,
-    PolarStereographic, Projection, Transform, TransverseMercator, WebMercator, epsg,
+    PolarStereographic, Projection, Support, Transform, TransverseMercator, WebMercator, epsg,
 };
 use std::io::Write;
 use std::process::{Command, Stdio};
@@ -26,9 +26,9 @@ const COORDINATE_FORMAT: &str = "%.12f";
 // Tolerances
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Each is at least two orders of magnitude above the worst disagreement the category
-// actually shows against PROJ 9.6, so a rounding difference between PROJ releases or
-// platforms cannot turn the suite red on its own. The observed worst is quoted with each.
+// Each is sized above the worst disagreement its category actually shows against PROJ
+// 9.6, with enough headroom that a rounding difference between PROJ releases or platforms
+// cannot turn the suite red on its own. The observed worst is quoted with each.
 
 /// projicio's own closed form projections against PROJ's, in metres. These evaluate the
 /// same formulas in f64 and agree to about 1e-8 m.
@@ -56,6 +56,25 @@ const FALLBACK_GEOGRAPHIC_DEGREES: f64 = 1e-9;
 /// but getting PROJ to apply the same parameters at all, see [`cs2cs_definition`].
 const DATUM_PROJECTED_METERS: f64 = 1e-6;
 const DATUM_GEOGRAPHIC_DEGREES: f64 = 1e-9;
+
+/// Codes projicio builds natively from their embedded definition, in the CRS's own unit
+/// rather than metres, since these grids are published in links, chains and feet as well
+/// as metres and the comparison happens on the numbers a caller gets back.
+///
+/// Most of the corpus clears this by five orders of magnitude. What sets it is the
+/// handful of grids whose false origin is millions of units: the two engines add that
+/// offset at different points in the formula, and what survives the cancellation is a
+/// tenth of a millimetre on the Michigan oblique mercator grid, which names 4.35
+/// million. That is deterministic rather than version dependent, so ten times headroom
+/// is enough here where the other categories get a hundred.
+const DEFINITION_PROJECTED_UNITS: f64 = 1e-3;
+
+/// Inverting back to WGS84, in degrees. Looser than the other categories because a 2D
+/// transform across a Helmert shift is not symmetric: the return leg starts at height
+/// zero on the other datum, where the outbound leg left a height of a few hundred
+/// metres. Both engines carry that asymmetry and they do not resolve it identically.
+/// Worst observed is 3.2e-9 degrees, a third of a millimetre, on Soldner Berlin.
+const DEFINITION_GEOGRAPHIC_DEGREES: f64 = 5e-8;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Running cs2cs
@@ -156,13 +175,15 @@ impl Mismatches {
 // The corpus
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Three categories:
+// Four categories:
 //   a) every projection projicio implements itself, driven through the `Projection`
 //      trait against an equivalent proj4 string, with no datum in play on either side
 //   b) EPSG codes the proj4rs fallback engine resolves, spread over projection methods,
 //      each paired with a geographic CRS carrying its own datum so the shift cancels and
 //      only the projection is under test
 //   c) Helmert datum shifts, where the datum is the whole point
+//   d) codes projicio builds natively from their embedded proj4 definition, covering
+//      each of the projection methods that path added
 //
 // NTv2 grid shift parity is out of scope: projicio embeds no grid data, so there is
 // nothing a runner could compare without fetching a national grid file first.
@@ -603,6 +624,291 @@ const DATUM_CASES: &[CodeCase] = &[
     },
 ];
 
+/// Codes projicio projects with its own math built from their embedded definition,
+/// several per projection method the definition path implements, with points inside each
+/// code's area of use. These are compared against WGS84 rather than against their own
+/// datum, because that is the pair a caller writes and it puts the hub, the unit and the
+/// datum shift in the comparison alongside the projection.
+///
+/// The full set of 64 codes is pinned by tests/native_from_definition.rs. This is a
+/// spread over the five methods and over the shapes a definition comes in: three and
+/// seven parameter shifts, no datum at all, and links, chains, feet and metres.
+const DEFINITION_CASES: &[CodeCase] = &[
+    // Cassini-Soldner
+    CodeCase {
+        code: 30200, // Trinidad 1903 / Trinidad Grid, in Clarke links
+        points: &[
+            (-61.3333, 10.4417),
+            (-61.5189, 10.6518),
+            (-61.0, 10.3),
+            (-60.95, 10.6),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 24500, // Kertau 1968 / Singapore Grid
+        points: &[
+            (103.853, 1.2876),
+            (103.8198, 1.3521),
+            (103.95, 1.32),
+            (103.7, 1.25),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 3140, // Viti Levu 1912 / Viti Levu Grid, in links
+        points: &[
+            (178.4419, -18.1416),
+            (177.4529, -17.6100),
+            (177.4356, -17.7765),
+            (178.0, -17.8),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 28191, // Palestine 1923 / Palestine Grid, seven parameter shift
+        points: &[
+            (35.2121, 31.7341),
+            (34.7818, 32.0853),
+            (35.0, 31.5),
+            (35.3, 32.5),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 2099, // Qatar 1948 / Qatar Grid, on the Helmert 1906 ellipsoid, no shift
+        points: &[
+            (51.5310, 25.2854),
+            (50.85, 25.5),
+            (51.2, 24.9),
+            (51.0, 26.0),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 3407, // Hong Kong 1963 Grid System, in Clarke feet
+        points: &[
+            (114.1786, 22.3121),
+            (114.0, 22.4),
+            (114.25, 22.25),
+            (113.95, 22.28),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 3377, // GDM2000 / Johor Grid, a definition naming no datum
+        points: &[
+            (103.4279, 2.1217),
+            (103.7618, 1.4927),
+            (102.9, 2.3),
+            (103.2, 1.9),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 3068, // DHDN / Soldner Berlin, see cs2cs_definition for the override
+        points: &[
+            (13.6272, 52.4186),
+            (13.4, 52.52),
+            (13.2, 52.6),
+            (13.75, 52.35),
+        ],
+        cs2cs_override: Some(
+            "+proj=cass +lat_0=52.41864827777778 +lon_0=13.62720366666667 +x_0=40000 \
+             +y_0=10000 +ellps=bessel +towgs84=598.1,73.7,418.2,0.202,0.045,-2.455,6.7 \
+             +units=m +no_defs",
+        ),
+    },
+    // Hotine oblique mercator
+    CodeCase {
+        code: 29873, // Timbalai 1948 / RSO Borneo, offsets at the projection centre
+        points: &[
+            (115.0, 4.0),
+            (116.0724, 5.9804),
+            (110.3592, 1.5533),
+            (117.89, 4.25),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 3376, // GDM2000 / East Malaysia BRSO, offsets at the natural origin
+        points: &[
+            (115.0, 4.0),
+            (116.0724, 5.9804),
+            (110.3592, 1.5533),
+            (117.89, 4.25),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 3375, // GDM2000 / Peninsula RSO
+        points: &[
+            (102.25, 4.0),
+            (101.6869, 3.1390),
+            (100.3327, 5.4141),
+            (103.3333, 3.8077),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 3167, // Kertau / RSO Malaya, in chains
+        points: &[
+            (102.25, 4.0),
+            (101.6869, 3.1390),
+            (100.3327, 5.4141),
+            (103.3333, 3.8077),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 3078, // NAD83 / Michigan Oblique Mercator, see cs2cs_definition
+        points: &[
+            (-86.0, 45.3092),
+            (-83.0458, 42.3314),
+            (-87.3954, 46.5436),
+            (-85.6, 44.8),
+        ],
+        cs2cs_override: Some(
+            "+proj=omerc +lat_0=45.30916666666666 +lonc=-86 +alpha=337.25556 +k=0.9996 \
+             +x_0=2546731.496 +y_0=-4354009.816 +no_uoff +gamma=337.25556 +ellps=GRS80 \
+             +towgs84=0,0,0,0,0,0,0 +units=m +no_defs",
+        ),
+    },
+    CodeCase {
+        code: 3468, // NAD83(NSRS2007) / Alaska zone 1
+        points: &[
+            (-133.6667, 57.0),
+            (-134.4197, 58.3019),
+            (-131.6461, 55.3422),
+            (-135.3139, 59.4583),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 6840, // NAD83(CORS96) / Oregon Coast zone, metres
+        points: &[
+            (-124.05, 44.75),
+            (-124.0535, 44.6368),
+            (-123.9, 46.0),
+            (-124.2, 43.4),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 6841, // the same zone in international feet
+        points: &[
+            (-124.05, 44.75),
+            (-124.0535, 44.6368),
+            (-123.9, 46.0),
+            (-124.2, 43.4),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 2057, // Rassadiran / Nakhl-e Taqi, a near zero azimuth on International 1924
+        points: &[
+            (52.6035, 27.5188),
+            (52.75, 27.4),
+            (52.5, 27.65),
+            (52.6, 27.6),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 8065, // NAD83(2011) / PCCS zone 1, a scale factor above one, in feet
+        points: &[
+            (-111.4, 32.25),
+            (-110.9747, 32.2226),
+            (-111.8, 31.9),
+            (-111.0, 32.6),
+        ],
+        cs2cs_override: None,
+    },
+    // American polyconic
+    CodeCase {
+        code: 29101, // SAD69 / Brazil Polyconic
+        points: &[
+            (-54.0, 0.0),
+            (-47.8825, -15.7942),
+            (-43.1729, -22.9068),
+            (-60.0217, -3.1019),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 5880, // SIRGAS 2000 / Brazil Polyconic
+        points: &[
+            (-54.0, 0.0),
+            (-47.8825, -15.7942),
+            (-38.5014, -12.9777),
+            (-60.0217, -3.1019),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 5530, // SAD69(96) / Brazil Polyconic, a different three parameter shift
+        points: &[
+            (-54.0, 0.0),
+            (-47.8825, -15.7942),
+            (-43.1729, -22.9068),
+            (-51.2177, -30.0346),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 5472, // Panama-Colon 1911 / Panama Polyconic, in Panamanian feet
+        points: &[
+            (-81.0, 8.25),
+            (-79.5199, 8.9824),
+            (-82.4, 8.4),
+            (-80.0, 9.0),
+        ],
+        cs2cs_override: None,
+    },
+    // Equal earth, all three of them since the method has only three codes
+    CodeCase {
+        code: 8857, // Equal Earth Greenwich
+        points: &[
+            (0.0, 0.0),
+            (12.4964, 41.9028),
+            (-58.3816, -34.6037),
+            (100.0, 60.0),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 8858, // Equal Earth Americas
+        points: &[
+            (-90.0, 0.0),
+            (-74.006, 40.7128),
+            (-58.3816, -34.6037),
+            (-122.4194, 37.7749),
+        ],
+        cs2cs_override: None,
+    },
+    CodeCase {
+        code: 8859, // Equal Earth Asia Pacific
+        points: &[
+            (150.0, 0.0),
+            (139.6917, 35.6895),
+            (174.7762, -41.2865),
+            (120.0, 30.0),
+        ],
+        cs2cs_override: None,
+    },
+    // Laborde, the one code the method has
+    CodeCase {
+        code: 8441, // Tananarive / Laborde Grid
+        points: &[
+            (46.4372, -18.9),
+            (47.5162, -18.8792),
+            (49.4023, -18.1492),
+            (44.2833, -20.2833),
+        ],
+        cs2cs_override: None,
+    },
+];
+
 /// The proj4 definition projicio would use for a code.
 fn definition(code: u32) -> &'static str {
     epsg::proj4_definition(code).unwrap_or_else(|| panic!("no embedded definition for EPSG:{code}"))
@@ -614,9 +920,9 @@ fn definition(code: u32) -> &'static str {
 /// The override exists because a proj4 string carrying an explicit `+towgs84=` becomes a
 /// bound CRS and PROJ applies exactly those parameters, while one naming a datum such as
 /// `+datum=OSGB36` becomes a plain CRS and PROJ picks its own best operation from the
-/// EPSG database, which for OSGB36 and Potsdam is an NTv2 grid. Writing the shift out
-/// puts both engines on the same seven parameters, which is what this file is comparing.
-/// Where an override is present it names the same parameters proj4rs reads out of
+/// EPSG database, which for OSGB36, Potsdam and NAD83 is an NTv2 grid. Writing the shift
+/// out puts both engines on the same parameters, which is what this file is comparing.
+/// Where an override is present it names the same parameters projicio reads out of
 /// `+datum=`, so if either datum table changes the test says so.
 fn cs2cs_definition(case: &CodeCase) -> &'static str {
     case.cs2cs_override.unwrap_or_else(|| definition(case.code))
@@ -803,4 +1109,60 @@ fn test_datum_shifts_match_cs2cs() {
     }
 
     mismatches.assert_empty("datum shift");
+}
+
+#[test]
+#[ignore = "needs a cs2cs binary, set PROJICIO_CS2CS"]
+fn test_definition_built_codes_match_cs2cs() {
+    let mut mismatches = Mismatches::default();
+    let wgs84 = definition(4326);
+
+    for case in DEFINITION_CASES {
+        let code = case.code;
+        let target = cs2cs_definition(case);
+
+        let forward = Transform::new("EPSG:4326", &format!("EPSG:{code}"))
+            .unwrap_or_else(|e| panic!("EPSG:{code} forward transform: {e}"));
+        let inverse = Transform::new(&format!("EPSG:{code}"), "EPSG:4326")
+            .unwrap_or_else(|e| panic!("EPSG:{code} inverse transform: {e}"));
+        // The point of this category is projicio's own math, so a pair that quietly
+        // dropped to proj4rs would still pass while testing nothing it claims to.
+        for (direction, transform) in [("from", &forward), ("to", &inverse)] {
+            assert_eq!(
+                transform.path(),
+                Support::Native,
+                "EPSG:{code} {direction} WGS84 left the native path"
+            );
+        }
+
+        let expected = cs2cs(wgs84, target, case.points);
+        for (&geographic, &want) in case.points.iter().zip(&expected) {
+            let got = forward
+                .convert(geographic.0, geographic.1)
+                .unwrap_or_else(|e| panic!("EPSG:{code} forward: {e}"));
+            mismatches.check(
+                &format!("EPSG:{code} from WGS84"),
+                geographic,
+                got,
+                want,
+                DEFINITION_PROJECTED_UNITS,
+            );
+        }
+
+        let recovered = cs2cs(target, wgs84, &expected);
+        for (&point, &want) in expected.iter().zip(&recovered) {
+            let got = inverse
+                .convert(point.0, point.1)
+                .unwrap_or_else(|e| panic!("EPSG:{code} inverse: {e}"));
+            mismatches.check(
+                &format!("EPSG:{code} to WGS84"),
+                point,
+                got,
+                want,
+                DEFINITION_GEOGRAPHIC_DEGREES,
+            );
+        }
+    }
+
+    mismatches.assert_empty("definition built code");
 }

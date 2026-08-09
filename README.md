@@ -5,7 +5,7 @@
 
 **Pure-Rust coordinate reference system and map projection engine.**
 
-No C PROJ, no GDAL. Pure Rust throughout, with 5869 EPSG codes embedded at compile time.
+No C PROJ, no GDAL. Pure Rust throughout, with 5935 EPSG codes embedded at compile time.
 
 [Documentation](https://geolang.github.io/projicio/) · [GitHub](https://github.com/GeoLang/projicio)
 
@@ -17,6 +17,8 @@ No C PROJ, no GDAL. Pure Rust throughout, with 5869 EPSG codes embedded at compi
 - **Lambert Conformal Conic** — 2SP variant
 - **Albers Equal Area** — conic equal-area projection
 - **Polar Stereographic** — for polar regions
+- **Cassini-Soldner, Hotine Oblique Mercator, American Polyconic, Equal Earth, Laborde** —
+  the methods the fallback engine has no implementation for
 - **Helmert 7-parameter datum transforms** — translation, rotation, scale (geocentric)
 - **NTv2 grid shifts** — register a `.gsb` at runtime and transforms use it (OSTN15, NAD27, etc.)
 - **Datum transforms** — geodetic ↔ geocentric conversion pipeline
@@ -24,7 +26,7 @@ No C PROJ, no GDAL. Pure Rust throughout, with 5869 EPSG codes embedded at compi
 - **EPSG code dispatch** — `Transform::new("EPSG:4326", "EPSG:3857")`
 - **WKT input** — `Transform::new` takes a `.prj` sidecar's WKT (1 or 2) on either side,
   converted at parse time by [`proj4wkt`](https://crates.io/crates/proj4wkt)
-- **5869 EPSG codes** — national grids, State Plane, UTM on any datum, via a fallback engine
+- **5935 EPSG codes** — national grids, State Plane, UTM on any datum, across both engines
 - **Batch transforms** — transform thousands of coordinates efficiently
 - **Pure Rust** — no unsafe in projicio, no C dependencies, no build scripts, no runtime data files
 
@@ -54,12 +56,12 @@ println!("NYC in Web Mercator: {x}, {y}");
 
 ## CRS Coverage
 
-Two engines sit behind the same API. Codes projicio implements itself take its own
-projection math. Everything else resolves through an embedded proj4 definition table
-([`crs-definitions`](https://crates.io/crates/crs-definitions)) transformed by
-[`proj4rs`](https://crates.io/crates/proj4rs), a pure-Rust port of proj4. Both crates
-embed their data at compile time, so there is still nothing to install and nothing to
-read from disk.
+Two engines sit behind the same API, both reading the same embedded proj4 definition table
+([`crs-definitions`](https://crates.io/crates/crs-definitions)). Codes projicio can build
+itself take its own projection math, either from its hand-written table or by parsing the
+definition. Everything else is transformed by [`proj4rs`](https://crates.io/crates/proj4rs),
+a pure-Rust port of proj4. Both crates embed their data at compile time, so there is still
+nothing to install and nothing to read from disk.
 
 ```rust
 use projicio_core::{Support, epsg};
@@ -72,16 +74,24 @@ assert_eq!(epsg::support(99999), Support::Unsupported);
 
 | | Codes | With common grids registered |
 |---|---|---|
-| Native | 122 | 122 |
-| Fallback | 5747 | 5951 |
-| **Total resolvable** | **5869** | **6073** |
+| Native | 186 | 186 |
+| Fallback | 5749 | 5953 |
+| **Total resolvable** | **5935** | **6139** |
 | Needs a datum-shift grid | 237 | 33 |
-| No usable projection method | 78 | 78 |
+| No usable projection method | 12 | 12 |
 
 `epsg::support` builds the definition before answering, so it never promises a transform
-that fails later. The 78 permanent gaps are projection methods proj4rs does not implement
-(Cassini-Soldner, oblique Mercator, polyconic, Equal Earth and a few others). The rest
-need a grid file you supply.
+that fails later.
+
+64 of the native codes are ones proj4rs cannot build. projicio parses their embedded
+definition itself and projects them with its own math, which is how Cassini-Soldner,
+Hotine Oblique Mercator, American Polyconic, Equal Earth and Laborde grids resolve. The
+parser rejects any definition carrying a parameter it does not fully implement, so a code
+either transforms exactly as its definition says or keeps reporting that it cannot.
+
+The 12 remaining gaps are a projection method nobody here implements (`cea`, `nzmg`), a
+prime meridian other than Greenwich, or an empty definition. The rest need a grid file you
+supply.
 
 ## Datum shift grids
 
@@ -178,6 +188,11 @@ Native path, projicio's own projection math:
 | Web Mercator | 3857 |
 | UTM North | 32601–32660 |
 | UTM South | 32701–32760 |
+| Cassini-Soldner | 30200, 3377–3385, 28191 |
+| Hotine Oblique Mercator | 29873, 3376, 6808, 8065 |
+| American Polyconic | 5880, 29101 |
+| Equal Earth | 8857–8859 |
+| Laborde | 8441 |
 
 The projection types below are implemented natively and usable directly, but
 `Transform` routes their EPSG codes through the fallback engine, which handles the
@@ -201,6 +216,12 @@ Ask for any other code with `projicio info EPSG:<code>` or `epsg::support(code)`
 | Helmert 7-parameter | 3 translations + 3 rotations + scale factor |
 | NTv2 grid shift | Bilinear interpolation from binary grid files |
 | Geocentric pipeline | Geodetic → ECEF → Helmert → ECEF → Geodetic |
+
+## Credits
+
+The Cassini-Soldner, Hotine Oblique Mercator, American Polyconic, Equal Earth and Laborde
+implementations are ported from [proj-rust](https://github.com/pka/proj-rust), used under
+its MIT OR Apache-2.0 license.
 
 ## License
 

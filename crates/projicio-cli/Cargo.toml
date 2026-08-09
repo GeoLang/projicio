@@ -12,5 +12,5 @@ name = "projicio"
 path = "src/main.rs"
 
 [dependencies]
-projicio-core.workspace = true
+projicio-core = { workspace = true, features = ["aeqd"] }
 clap = { version = "4", features = ["derive"] }

@@ -665,6 +665,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "projicio-wasm"
+version = "0.1.0"
+dependencies = [
+ "projicio-core",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "proptest"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

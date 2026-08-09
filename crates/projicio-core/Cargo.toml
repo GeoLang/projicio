@@ -7,9 +7,14 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[features]
+default = ["aeqd"]
+# optional because proj4rs-geodesic does not compile on wasm32
+aeqd = ["proj4rs/aeqd"]
+
 [dependencies]
 crs-definitions = { version = "0.5", default-features = false, features = ["proj4"] }
-proj4rs = { version = "0.1.10", default-features = false, features = ["multi-thread", "krovak", "aeqd"] }
+proj4rs = { version = "0.1.10", default-features = false, features = ["multi-thread", "krovak"] }
 proj4wkt = { version = "0.1.1", default-features = false }
 thiserror = "2"
 

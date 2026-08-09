@@ -1,0 +1,16 @@
+[package]
+name = "projicio-wasm"
+description = "WebAssembly bindings for projicio coordinate transforms"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# no aeqd: proj4rs-geodesic does not compile on wasm32
+projicio-core = { workspace = true, default-features = false }
+wasm-bindgen = "0.2"

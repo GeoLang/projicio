@@ -34,6 +34,11 @@ All notable changes to this project will be documented in this file.
 - `Transform::new` accepts a proj4 projstring on either side, which is how a caller names
   a grid the embedded definition does not mention, as OSTN15 needs for EPSG:27700.
 - `projicio --grid NAME=PATH` registers a grid from the CLI, repeatable.
+- `projicio-wasm`: WebAssembly bindings exposing `transform_coordinates(from, to, [x0,
+  y0, ...])`, built with `wasm-pack --target web`. The `grids` module is compiled out on
+  wasm32 (proj4rs has no grid reader there), and the new default-on `aeqd` feature of
+  `projicio-core` is off in the wasm build because `proj4rs-geodesic` does not compile
+  on wasm32.
 
 ### Fixed
 

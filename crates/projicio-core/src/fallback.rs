@@ -111,19 +111,26 @@ impl Proj4Transform {
     }
 
     pub fn convert(&self, x: f64, y: f64) -> Result<(f64, f64), Error> {
+        self.convert_3d(x, y, 0.0).map(|(x, y, _)| (x, y))
+    }
+
+    /// Transform carrying the ellipsoidal height, which a datum shift changes.
+    /// A caller chaining two transforms has to pass it on or the second shift
+    /// starts from the wrong height.
+    pub fn convert_3d(&self, x: f64, y: f64, z: f64) -> Result<(f64, f64, f64), Error> {
         let mut point = if self.src_is_latlong {
-            (x.to_radians(), y.to_radians(), 0.0)
+            (x.to_radians(), y.to_radians(), z)
         } else {
-            (x, y, 0.0)
+            (x, y, z)
         };
 
         proj4rs::transform::transform(&self.src, &self.dst, &mut point)
             .map_err(|e| Error::ProjectionError(e.to_string()))?;
 
         if self.dst_is_latlong {
-            Ok((point.0.to_degrees(), point.1.to_degrees()))
+            Ok((point.0.to_degrees(), point.1.to_degrees(), point.2))
         } else {
-            Ok((point.0, point.1))
+            Ok((point.0, point.1, point.2))
         }
     }
 }

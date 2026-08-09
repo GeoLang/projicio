@@ -6,6 +6,18 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Native path built from an EPSG code's own proj4 definition, for the 64 codes proj4rs has
+  no projection method for. `epsg::support` reports `Support::Native` for them and
+  `Transform` projects them with projicio's own math. Cassini-Soldner, Hotine Oblique
+  Mercator, American Polyconic, Equal Earth and Laborde are ported from
+  [proj-rust](https://github.com/pka/proj-rust) under its MIT OR Apache-2.0 license and
+  exposed as `CassiniSoldner`, `HotineObliqueMercator`, `AmericanPolyconic`, `EqualEarth`
+  and `Laborde`.
+- `projstring::parse` reads a proj4 definition into projection parameters, rejecting any
+  definition that carries a parameter it does not fully implement. A rejected definition
+  leaves its EPSG code with the classification it already had, so nothing that already
+  worked changes engine.
+
 - `Transform::new` accepts a WKT CRS definition (the content of a `.prj` sidecar) on
   either side, WKT1 or WKT2. A WKT naming its EPSG code resolves through that code; a
   codeless one (typical for ESRI `.prj`) is converted to a projstring by `proj4wkt` and
@@ -55,6 +67,13 @@ All notable changes to this project will be documented in this file.
 - `Transform::new` uses the native path when both codes are native, otherwise hands the
   whole transform to the fallback so the datum shift is applied once. Native results are
   unchanged.
+- A pair where one side is built from its definition meets at WGS84 geographic, so each
+  side reaches the hub on its own and the datum shift still happens once. Where the
+  definition names no datum, neither side is shifted, matching what proj does for such a
+  pair.
+- `HelmertTransform::inverse` undoes `forward` exactly, transposing the rotation and
+  dividing out the scale instead of negating the parameters. The old form left a
+  centimetre-level residue at the rotations national grids use.
 
 ## [0.1.0] - 2026-05-30
 

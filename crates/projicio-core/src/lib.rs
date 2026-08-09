@@ -21,6 +21,7 @@ mod fallback;
 #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 pub mod grids;
 mod projection;
+pub mod projstring;
 mod transform;
 
 pub use datum::{
@@ -31,8 +32,9 @@ pub use ellipsoid::Ellipsoid;
 pub use epsg::Support;
 pub use error::Error;
 pub use projection::{
-    AlbersEqualArea, LambertConformalConic, Mercator, PolarStereographic, Projection,
-    TransverseMercator, WebMercator,
+    AlbersEqualArea, AmericanPolyconic, CassiniSoldner, EqualEarth, HotineObliqueMercator, Laborde,
+    LambertConformalConic, Mercator, PolarStereographic, Projection, TransverseMercator,
+    WebMercator,
 };
 pub use transform::Transform;
 

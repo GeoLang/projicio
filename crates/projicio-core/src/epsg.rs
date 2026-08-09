@@ -218,15 +218,26 @@ pub fn is_native(code: u32) -> bool {
 /// builds, since proj4rs implements a subset of proj's projection methods and the
 /// table contains codes it cannot construct.
 ///
+/// A code proj4rs cannot build still reports [`Support::Native`] when projicio
+/// can build the whole of its embedded definition with its own projection math,
+/// see [`crate::projstring`].
+///
 /// The answer depends on which grids are registered: a code whose definition names a
 /// datum shift grid reports [`Support::NeedsGrid`] until that grid is registered, and
 /// [`Support::Fallback`] afterwards.
 pub fn support(code: u32) -> Support {
     if is_native(code) {
-        Support::Native
-    } else {
-        crate::fallback::classify(code)
+        return Support::Native;
     }
+    match crate::fallback::classify(code) {
+        Support::Unsupported if builds_from_definition(code) => Support::Native,
+        other => other,
+    }
+}
+
+fn builds_from_definition(code: u32) -> bool {
+    proj4_definition(code)
+        .is_some_and(|def| crate::projstring::NativeCrs::from_definition(def).is_ok())
 }
 
 /// Parse a simple WKT CRS string and extract the EPSG code.

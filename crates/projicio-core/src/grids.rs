@@ -15,6 +15,7 @@
 
 use crate::Error;
 use proj4rs::nadgrids::{Catalog, NadGrids, catalog, files};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Cursor;
 #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
@@ -46,6 +47,14 @@ static REGISTRY: Mutex<Registry> = Mutex::new(Registry {
 
 static BUILDER: OnceLock<()> = OnceLock::new();
 
+thread_local! {
+    /// The grid names proj4rs asked for during a [`missing_grids`] probe on this thread.
+    ///
+    /// Per thread rather than global because proj4rs calls the builder inline, and a
+    /// transform on another thread must not land in this probe's answer.
+    static PROBE_REQUESTS: RefCell<Option<BTreeSet<String>>> = const { RefCell::new(None) };
+}
+
 /// Hand proj4rs a loader that only ever looks in this registry.
 ///
 /// Deliberately not proj4rs's own file loader: that one searches `PROJ_NADGRIDS` and
@@ -58,6 +67,12 @@ fn install_builder() {
 }
 
 fn builder(catalog: &Catalog, key: &str) -> Result<(), proj4rs::errors::Error> {
+    PROBE_REQUESTS.with_borrow_mut(|requests| {
+        if let Some(requests) = requests {
+            requests.insert(key.to_string());
+        }
+    });
+
     let bytes = REGISTRY.lock().unwrap().pending.remove(key);
     let Some(bytes) = bytes else {
         return Err(proj4rs::errors::Error::GridFileNotFound(key.into()));
@@ -136,6 +151,36 @@ pub fn is_registered(name: &str) -> bool {
 /// The names of every grid registered so far, sorted.
 pub fn registered() -> Vec<String> {
     REGISTRY.lock().unwrap().loaded.iter().cloned().collect()
+}
+
+/// The grid names a CRS needs registering before it can transform, sorted.
+///
+/// The spec is anything [`crate::Transform::new`] takes: an EPSG code, a proj4
+/// projstring or a WKT definition. An empty list means registration is not what stands
+/// in the way, either because the definition names no grid, or because the ones it names
+/// are here already, or because it fails for a reason no grid file would fix.
+///
+/// The names are the ones proj4rs itself asks for, so `+datum=` expands exactly as it
+/// does in a real transform. A definition whose grids are all optional, which is the form
+/// `+datum=NAD27` takes, is satisfied by any single name in the list.
+pub fn missing_grids(spec: &str) -> Vec<String> {
+    let Ok(spec) = crate::transform::parse_spec(spec) else {
+        return Vec::new();
+    };
+    install_builder();
+
+    PROBE_REQUESTS.set(Some(BTreeSet::new()));
+    let built = crate::fallback::build(&spec);
+    let requested = PROBE_REQUESTS.take().unwrap_or_default();
+
+    if built.is_ok() {
+        return Vec::new();
+    }
+    let registry = REGISTRY.lock().unwrap();
+    requested
+        .into_iter()
+        .filter(|name| !registry.loaded.contains(name))
+        .collect()
 }
 
 #[cfg(test)]

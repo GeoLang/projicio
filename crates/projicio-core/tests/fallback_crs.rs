@@ -3,7 +3,7 @@
 // The projection-only cases use a source CRS on the same datum as the target so
 // no datum shift is involved and the published numbers apply exactly.
 
-use projicio_core::{Support, Transform, epsg};
+use projicio_core::{Support, Transform, epsg, grids};
 
 /// Degrees from a degree/minute/second triple, so test inputs can be written the
 /// way the source documents print them.
@@ -237,6 +237,29 @@ fn test_support_reports_needs_grid_when_definition_needs_a_grid() {
     assert!(epsg::proj4_definition(4267).is_some());
     assert_eq!(epsg::support(4267), Support::NeedsGrid);
     assert_eq!(epsg::support(32040), Support::NeedsGrid);
+}
+
+#[test]
+fn test_missing_grids_names_what_a_nad27_code_waits_on() {
+    // No grid is registered in this test binary, so both NAD27 codes report the whole
+    // nadgrids list behind +datum=NAD27. See tests/grids.rs for the registered half.
+    let expected = ["alaska", "conus", "ntv1_can.dat", "ntv2_0.gsb"];
+    assert_eq!(grids::missing_grids("EPSG:4267"), expected);
+    assert_eq!(grids::missing_grids("EPSG:32040"), expected);
+}
+
+#[test]
+fn test_missing_grids_is_empty_when_no_grid_is_involved() {
+    for spec in ["EPSG:4326", "EPSG:27700", "+proj=merc +ellps=WGS84"] {
+        assert!(grids::missing_grids(spec).is_empty(), "{spec}");
+    }
+}
+
+#[test]
+fn test_missing_grids_is_empty_for_a_spec_no_grid_would_fix() {
+    for spec in ["EPSG:99999", "nonsense", "+proj=nonsuch"] {
+        assert!(grids::missing_grids(spec).is_empty(), "{spec}");
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

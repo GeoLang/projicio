@@ -269,6 +269,20 @@ fn test_ostn15_real_grid_os_test_point_tp01() {
 // Registration errors
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════
+// What a definition still needs
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_missing_grids_empties_once_the_named_grid_is_registered() {
+    let name = "projicio-test-missing-grids.gsb";
+    let spec = format!("+proj=longlat +ellps=clrk66 +nadgrids={name}");
+    assert_eq!(grids::missing_grids(&spec), [name]);
+
+    grids::register_bytes(name, synthetic_ntv2(0.0, 2.0, 0.0, 2.0, 1.0, 1.0, 1.0)).unwrap();
+    assert!(grids::missing_grids(&spec).is_empty());
+}
+
 #[test]
 fn test_registering_garbage_reports_a_grid_error() {
     let err = grids::register_bytes("projicio-test-garbage.gsb", vec![0u8; 500]).unwrap_err();

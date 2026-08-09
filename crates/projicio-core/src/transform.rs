@@ -162,7 +162,7 @@ impl std::fmt::Debug for Transform {
     }
 }
 
-fn parse_spec(s: &str) -> Result<Spec, Error> {
+pub(crate) fn parse_spec(s: &str) -> Result<Spec, Error> {
     let trimmed = s.trim();
     if trimmed.starts_with('+') {
         Ok(Spec::Proj4(trimmed.to_string()))

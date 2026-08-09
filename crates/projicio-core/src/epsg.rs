@@ -235,8 +235,9 @@ pub fn support(code: u32) -> Support {
 /// - `AUTHORITY["EPSG","4326"]`
 /// - `ID["EPSG",4326]`
 pub fn parse_wkt_epsg(wkt: &str) -> Option<u32> {
-    // Try WKT1: AUTHORITY["EPSG","CODE"]
-    if let Some(idx) = wkt.find("AUTHORITY[\"EPSG\"") {
+    // Try WKT1: AUTHORITY["EPSG","CODE"]. Nested nodes (datum, spheroid) carry
+    // their own AUTHORITY, and the CRS's own one closes the string, so take the last.
+    if let Some(idx) = wkt.rfind("AUTHORITY[\"EPSG\"") {
         let after = &wkt[idx..];
         if let Some(start) = after.find(",\"") {
             let rest = &after[start + 2..];
@@ -246,8 +247,8 @@ pub fn parse_wkt_epsg(wkt: &str) -> Option<u32> {
         }
     }
 
-    // Try WKT2: ID["EPSG",CODE]
-    if let Some(idx) = wkt.find("ID[\"EPSG\"") {
+    // Try WKT2: ID["EPSG",CODE], same last-one-wins reasoning as AUTHORITY
+    if let Some(idx) = wkt.rfind("ID[\"EPSG\"") {
         let after = &wkt[idx..];
         if let Some(start) = after.find(',') {
             let rest = &after[start + 1..];
@@ -339,6 +340,12 @@ mod tests {
     fn test_parse_wkt1_epsg() {
         let wkt = r#"GEOGCS["WGS 84",DATUM["WGS_1984"],AUTHORITY["EPSG","4326"]]"#;
         assert_eq!(parse_wkt_epsg(wkt), Some(4326));
+    }
+
+    #[test]
+    fn test_parse_wkt1_nested_authorities_take_crs_code() {
+        let wkt = r#"PROJCS["NAD83 / UTM zone 18N",GEOGCS["NAD83",DATUM["North_American_Datum_1983",SPHEROID["GRS 1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],AUTHORITY["EPSG","6269"]],AUTHORITY["EPSG","4269"]],PROJECTION["Transverse_Mercator"],AUTHORITY["EPSG","26918"]]"#;
+        assert_eq!(parse_wkt_epsg(wkt), Some(26918));
     }
 
     #[test]

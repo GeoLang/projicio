@@ -28,8 +28,9 @@ pub struct Transform {
 impl Transform {
     /// Create a transform between two CRS.
     ///
-    /// Each side is either an EPSG code, as `"EPSG:4326"` or `"4326"`, or a proj4
-    /// projstring starting with `+`. A projstring is the way to name a datum shift
+    /// Each side is one of: an EPSG code, as `"EPSG:4326"` or `"4326"`; a proj4
+    /// projstring starting with `+`; or a WKT CRS definition such as the content
+    /// of a `.prj` sidecar. A projstring is the way to name a datum shift
     /// grid the embedded definition does not mention, with `+nadgrids=`.
     ///
     /// Both sides take projicio's native path when it covers them, otherwise the
@@ -95,8 +96,30 @@ fn parse_spec(s: &str) -> Result<Spec, Error> {
     let trimmed = s.trim();
     if trimmed.starts_with('+') {
         Ok(Spec::Proj4(trimmed.to_string()))
+    } else if is_wkt(trimmed) {
+        // a WKT naming its EPSG code resolves by code, which keeps the native
+        // path and the embedded datum handling; codeless WKT (typical for an
+        // ESRI .prj) converts to a projstring for the fallback engine
+        if let Some(code) = epsg::parse_wkt_epsg(trimmed) {
+            return Ok(Spec::Epsg(code));
+        }
+        let projstring = proj4wkt::wkt_to_projstring(trimmed)
+            .map_err(|e| Error::UnsupportedCrs(format!("WKT: {e}")))?;
+        Ok(Spec::Proj4(projstring))
     } else {
         parse_epsg(trimmed).map(Spec::Epsg)
+    }
+}
+
+/// A WKT CRS definition starts with a keyword followed by a bracketed body,
+/// as in `PROJCS["..."]`, which no EPSG code or projstring does.
+fn is_wkt(s: &str) -> bool {
+    match s.find('[') {
+        Some(bracket) if bracket > 0 => s[..bracket]
+            .trim_end()
+            .chars()
+            .all(|c| c.is_ascii_alphabetic() || c == '_'),
+        _ => false,
     }
 }
 
@@ -171,6 +194,45 @@ mod tests {
         // Known approximate values for NYC in Web Mercator
         assert!((x - (-8_238_310.0)).abs() < 100.0);
         assert!((y - 4_970_072.0).abs() < 100.0);
+    }
+
+    // the content of a typical ESRI .prj: NAD83 UTM zone 18N
+    const UTM_18N_WKT: &str = r#"PROJCS["NAD_1983_UTM_Zone_18N",GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-75.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]"#;
+
+    #[test]
+    fn test_transform_from_wkt_matches_epsg() {
+        let from_wkt = Transform::new(UTM_18N_WKT, "EPSG:4326").unwrap();
+        let from_code = Transform::new("EPSG:26918", "EPSG:4326").unwrap();
+        let (wkt_lon, wkt_lat) = from_wkt.convert(585_000.0, 4_510_000.0).unwrap();
+        let (code_lon, code_lat) = from_code.convert(585_000.0, 4_510_000.0).unwrap();
+        // same projection either way; only the datum handling may differ at the meter level
+        assert!((wkt_lon - code_lon).abs() < 1e-5, "{wkt_lon} vs {code_lon}");
+        assert!((wkt_lat - code_lat).abs() < 1e-5, "{wkt_lat} vs {code_lat}");
+    }
+
+    #[test]
+    fn test_transform_wkt_roundtrip() {
+        let forward = Transform::new("EPSG:4326", UTM_18N_WKT).unwrap();
+        let inverse = Transform::new(UTM_18N_WKT, "EPSG:4326").unwrap();
+        let (x, y) = forward.convert(-74.006, 40.7128).unwrap();
+        let (lon, lat) = inverse.convert(x, y).unwrap();
+        assert!((lon - (-74.006)).abs() < 1e-6);
+        assert!((lat - 40.7128).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_transform_geographic_wkt_is_identity() {
+        let wkt = r#"GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]"#;
+        let t = Transform::new(wkt, "EPSG:4326").unwrap();
+        let (lon, lat) = t.convert(-74.006, 40.7128).unwrap();
+        assert!((lon - (-74.006)).abs() < 1e-9);
+        assert!((lat - 40.7128).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_transform_bad_wkt_errors() {
+        let err = Transform::new("PROJCS[\"broken\"", "EPSG:4326").unwrap_err();
+        assert!(matches!(err, Error::UnsupportedCrs(_)), "{err}");
     }
 
     #[test]

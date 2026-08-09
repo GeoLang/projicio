@@ -22,6 +22,8 @@ No C PROJ, no GDAL. Pure Rust throughout, with 5869 EPSG codes embedded at compi
 - **Datum transforms** — geodetic ↔ geocentric conversion pipeline
 - **Ellipsoids** — WGS84, GRS80, Clarke 1866, International 1924, unit sphere
 - **EPSG code dispatch** — `Transform::new("EPSG:4326", "EPSG:3857")`
+- **WKT input** — `Transform::new` takes a `.prj` sidecar's WKT (1 or 2) on either side,
+  converted at parse time by [`proj4wkt`](https://crates.io/crates/proj4wkt)
 - **5869 EPSG codes** — national grids, State Plane, UTM on any datum, via a fallback engine
 - **Batch transforms** — transform thousands of coordinates efficiently
 - **Pure Rust** — no unsafe in projicio, no C dependencies, no build scripts, no runtime data files

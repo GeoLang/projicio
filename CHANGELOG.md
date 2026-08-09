@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `Transform::new` accepts a WKT CRS definition (the content of a `.prj` sidecar) on
+  either side, WKT1 or WKT2. A WKT naming its EPSG code resolves through that code; a
+  codeless one (typical for ESRI `.prj`) is converted to a projstring by `proj4wkt` and
+  runs on the fallback engine.
+
 - Fallback transform engine covering 5869 EPSG codes, up from 122. Definitions come from
   the `crs-definitions` crate and are transformed by `proj4rs`, both pure Rust with their
   data embedded at compile time. National grids, State Plane zones and UTM on non-WGS84
@@ -29,6 +34,11 @@ All notable changes to this project will be documented in this file.
 - `Transform::new` accepts a proj4 projstring on either side, which is how a caller names
   a grid the embedded definition does not mention, as OSTN15 needs for EPSG:27700.
 - `projicio --grid NAME=PATH` registers a grid from the CLI, repeatable.
+
+### Fixed
+
+- `epsg::parse_wkt_epsg` on nested WKT returned the first `AUTHORITY`/`ID` code it saw,
+  which is the datum's or spheroid's, not the CRS's. It now takes the last one.
 
 ### Removed
 

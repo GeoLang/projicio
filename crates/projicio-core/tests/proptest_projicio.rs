@@ -43,6 +43,49 @@ proptest! {
         }
     }
 
+    /// Lambert Conformal Conic 2SP forward+inverse roundtrip.
+    #[test]
+    fn lambert_conformal_conic_roundtrip(
+        lon in -130.0f64..-106.0,
+        lat in 25.0f64..45.0,
+    ) {
+        let lcc = LambertConformalConic::new_2sp(
+            Ellipsoid::GRS80, 34.0, 40.5, 33.5, -118.0, 2000000.0, 500000.0,
+        );
+        let geo = Geographic::new(lon, lat);
+        if let Ok(coord) = lcc.forward(geo) {
+            if let Ok(back) = lcc.inverse(coord) {
+                prop_assert!((back.lon - geo.lon).abs() < 1e-7,
+                    "lon mismatch: {} vs {}", back.lon, geo.lon);
+                prop_assert!((back.lat - geo.lat).abs() < 1e-7,
+                    "lat mismatch: {} vs {}", back.lat, geo.lat);
+            }
+        }
+    }
+
+    /// Polar stereographic forward+inverse roundtrip, both aspects.
+    #[test]
+    fn polar_stereographic_roundtrip(
+        lon in -179.9f64..179.9,
+        lat_abs in 60.0f64..89.9,
+        north in proptest::bool::ANY,
+    ) {
+        let ps = if north {
+            PolarStereographic::north(Ellipsoid::WGS84)
+        } else {
+            PolarStereographic::south(Ellipsoid::WGS84)
+        };
+        let geo = Geographic::new(lon, if north { lat_abs } else { -lat_abs });
+        if let Ok(coord) = ps.forward(geo) {
+            if let Ok(back) = ps.inverse(coord) {
+                prop_assert!((back.lon - geo.lon).abs() < 1e-7,
+                    "lon mismatch: {} vs {}", back.lon, geo.lon);
+                prop_assert!((back.lat - geo.lat).abs() < 1e-7,
+                    "lat mismatch: {} vs {}", back.lat, geo.lat);
+            }
+        }
+    }
+
     /// Geocentric<->geodetic roundtrip preserves coordinates.
     /// These functions use radians.
     #[test]

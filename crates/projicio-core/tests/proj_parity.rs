@@ -10,8 +10,8 @@
 // output is the expectation, so the corpus is points and tolerances only.
 
 use projicio_core::{
-    AlbersEqualArea, Coord, Ellipsoid, Geographic, LambertConformalConic, Mercator, Projection,
-    Transform, TransverseMercator, WebMercator, epsg,
+    AlbersEqualArea, Coord, Ellipsoid, Geographic, LambertConformalConic, Mercator,
+    PolarStereographic, Projection, Transform, TransverseMercator, WebMercator, epsg,
 };
 use std::io::Write;
 use std::process::{Command, Stdio};
@@ -177,26 +177,10 @@ struct NativeCase {
     projection: Box<dyn Projection>,
     points: &'static [(f64, f64)],
     projected_tolerance: f64,
-    /// False where projicio's inverse is known not to agree, see the polar stereographic
-    /// and Lambert notes below.
-    inverse: bool,
 }
 
 const WGS84_GEOGRAPHIC: &str = "+proj=longlat +ellps=WGS84 +no_defs";
 const GRS80_GEOGRAPHIC: &str = "+proj=longlat +ellps=GRS80 +no_defs";
-
-// TODO: two native projections disagree with PROJ by far more than any tolerance, so
-// they are carved out of the corpus rather than run and ignored.
-//
-// `LambertConformalConic::inverse` passes its arguments to `atan2` in the wrong order,
-// which offsets every recovered longitude by a constant of a half turn divided by the
-// cone constant, 158 degrees for the California parameters. Its forward is correct and
-// stays in the corpus below.
-//
-// `PolarStereographic` halves the exponents in the polar radius denominator and then
-// takes a square root of the whole product, so the scale is out by 0.17 percent, 1.8 km
-// at 60 degrees. Its southern variant also mirrors longitude, giving x the opposite sign
-// from every other implementation. Both directions are wrong, so neither is here.
 
 fn native_cases() -> Vec<NativeCase> {
     vec![
@@ -219,7 +203,6 @@ fn native_cases() -> Vec<NativeCase> {
                 (18.0686, -33.9249),
             ],
             projected_tolerance: NATIVE_PROJECTED_METERS,
-            inverse: true,
         },
         NativeCase {
             name: "utm zone 18 north",
@@ -235,7 +218,6 @@ fn native_cases() -> Vec<NativeCase> {
                 (-75.000001, 45.0),
             ],
             projected_tolerance: TRANSVERSE_MERCATOR_METERS,
-            inverse: true,
         },
         NativeCase {
             name: "utm zone 33 south",
@@ -250,7 +232,6 @@ fn native_cases() -> Vec<NativeCase> {
                 (15.000001, -20.0),
             ],
             projected_tolerance: TRANSVERSE_MERCATOR_METERS,
-            inverse: true,
         },
         NativeCase {
             name: "mercator",
@@ -266,7 +247,6 @@ fn native_cases() -> Vec<NativeCase> {
                 (-179.9, -84.0),
             ],
             projected_tolerance: NATIVE_PROJECTED_METERS,
-            inverse: true,
         },
         NativeCase {
             name: "lambert conformal conic 2sp, california",
@@ -292,7 +272,6 @@ fn native_cases() -> Vec<NativeCase> {
                 (-121.0, 38.0),
             ],
             projected_tolerance: NATIVE_PROJECTED_METERS,
-            inverse: false,
         },
         NativeCase {
             name: "lambert conformal conic 2sp, europe",
@@ -317,7 +296,6 @@ fn native_cases() -> Vec<NativeCase> {
                 (25.0, 35.0),
             ],
             projected_tolerance: NATIVE_PROJECTED_METERS,
-            inverse: false,
         },
         NativeCase {
             name: "albers equal area, conus",
@@ -340,7 +318,38 @@ fn native_cases() -> Vec<NativeCase> {
                 (-100.0, 30.0),
             ],
             projected_tolerance: NATIVE_PROJECTED_METERS,
-            inverse: true,
+        },
+        NativeCase {
+            name: "polar stereographic, north",
+            projected: "+proj=stere +lat_0=90 +lon_0=0 +k_0=0.994 +x_0=0 +y_0=0 \
+                        +ellps=WGS84 +units=m +no_defs",
+            geographic: WGS84_GEOGRAPHIC,
+            projection: Box::new(PolarStereographic::north(Ellipsoid::WGS84)),
+            points: &[
+                (0.0, 89.999999),
+                (0.0, 60.0),
+                (44.0, 73.0),
+                (-123.0, 66.0),
+                (180.0, 75.0),
+                (-45.0, 85.0),
+            ],
+            projected_tolerance: NATIVE_PROJECTED_METERS,
+        },
+        NativeCase {
+            name: "polar stereographic, south",
+            projected: "+proj=stere +lat_0=-90 +lon_0=0 +k_0=0.994 +x_0=0 +y_0=0 \
+                        +ellps=WGS84 +units=m +no_defs",
+            geographic: WGS84_GEOGRAPHIC,
+            projection: Box::new(PolarStereographic::south(Ellipsoid::WGS84)),
+            points: &[
+                (0.0, -89.999999),
+                (0.0, -60.0),
+                (44.0, -73.0),
+                (-123.0, -66.0),
+                (180.0, -75.0),
+                (-45.0, -85.0),
+            ],
+            projected_tolerance: NATIVE_PROJECTED_METERS,
         },
     ]
 }
@@ -677,10 +686,6 @@ fn test_native_projections_match_cs2cs() {
                 want,
                 case.projected_tolerance,
             );
-        }
-
-        if !case.inverse {
-            continue;
         }
 
         // Invert what cs2cs produced, so both engines start from the same planar point.

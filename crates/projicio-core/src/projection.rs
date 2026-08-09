@@ -358,7 +358,7 @@ impl Projection for LambertConformalConic {
         let y = self.rho0 - (coord.y - self.false_northing);
 
         let rho = self.n.signum() * (x * x + y * y).sqrt();
-        let theta = y.atan2(x);
+        let theta = x.atan2(y);
         let t = (rho / (a * self.f_coeff)).powf(1.0 / self.n);
 
         let lon = theta / self.n + lon0;
@@ -533,8 +533,8 @@ impl Projection for PolarStereographic {
         let t = ((std::f64::consts::FRAC_PI_4 - lat_rad / 2.0).tan())
             / ((1.0 - e_sin) / (1.0 + e_sin)).powf(e / 2.0);
 
-        let rho = 2.0 * a * self.k0 * t
-            / ((1.0 + e).powf((1.0 + e) / 2.0) * (1.0 - e).powf((1.0 - e) / 2.0)).sqrt();
+        let rho =
+            2.0 * a * self.k0 * t / ((1.0 + e).powf(1.0 + e) * (1.0 - e).powf(1.0 - e)).sqrt();
 
         let x = rho * lam.sin();
         let y = -rho * lam.cos();
@@ -542,7 +542,7 @@ impl Projection for PolarStereographic {
         if self.north {
             Ok(Coord::new(x, y))
         } else {
-            Ok(Coord::new(x, -y))
+            Ok(Coord::new(-x, -y))
         }
     }
 
@@ -553,12 +553,12 @@ impl Projection for PolarStereographic {
         let (x, y) = if self.north {
             (coord.x, coord.y)
         } else {
-            (coord.x, -coord.y)
+            (-coord.x, -coord.y)
         };
 
         let rho = (x * x + y * y).sqrt();
-        let t = rho * ((1.0 + e).powf((1.0 + e) / 2.0) * (1.0 - e).powf((1.0 - e) / 2.0)).sqrt()
-            / (2.0 * a * self.k0);
+        let t =
+            rho * ((1.0 + e).powf(1.0 + e) * (1.0 - e).powf(1.0 - e)).sqrt() / (2.0 * a * self.k0);
 
         // Iterative latitude from t
         let mut phi = std::f64::consts::FRAC_PI_2 - 2.0 * t.atan();

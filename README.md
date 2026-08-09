@@ -111,6 +111,8 @@ let t = Transform::new("EPSG:4267", "EPSG:4326").unwrap();
 The name is the one the definition uses, which is not always a file name: `+datum=NAD27`
 names `conus`, `alaska`, `ntv2_0.gsb` and `ntv1_can.dat`, while `+nadgrids=` names
 whatever you write. Registration is process wide, and a name can be registered once.
+`grids::missing_grids("EPSG:4267")` names what a CRS is still waiting on, and returns an
+empty list once it transforms.
 
 Grids the embedded table asks for, by number of codes waiting on them:
 
@@ -118,6 +120,29 @@ Grids the embedded table asks for, by number of codes waiting on them:
 |---|---|---|
 | `conus` and friends (NAD27) | 204 | NOAA NGS / the PROJ data package |
 | `nzgd2kgrid0005.gsb` (NZGD49) | 33 | Land Information New Zealand |
+
+### In the browser
+
+The wasm build registers grids too, from bytes rather than a path, since there is no file
+system to read them from. A grid stays registered for the life of the wasm instance, so
+fetch it once per session and every later transform sees it.
+
+```js
+import init, { register_grid, missing_grids, transform_coordinates } from "projicio-wasm";
+
+await init();
+missing_grids("EPSG:4267"); // ["alaska", "conus", "ntv1_can.dat", "ntv2_0.gsb"]
+
+const gsb = await fetch("/grids/conus").then((r) => r.arrayBuffer());
+register_grid("conus", new Uint8Array(gsb));
+
+missing_grids("EPSG:4267"); // []
+transform_coordinates("EPSG:4267", "EPSG:4326", new Float64Array([-100, 35]));
+```
+
+`registered_grids()` lists what this instance holds. NTv2 parsing on wasm32 comes from a
+patched proj4rs, pinned in the workspace `Cargo.toml`, which retires when proj4rs 0.2.0
+ships the same change.
 
 ### OSTN15 for the British National Grid
 

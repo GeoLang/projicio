@@ -665,6 +665,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "projicio-epsg-format"
+version = "0.1.0"
+
+[[package]]
 name = "projicio-wasm"
 version = "0.1.0"
 dependencies = [

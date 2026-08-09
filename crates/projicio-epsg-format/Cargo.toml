@@ -1,0 +1,10 @@
+[package]
+name = "projicio-epsg-format"
+description = "Binary layout of projicio's embedded EPSG metadata registry"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]

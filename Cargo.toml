@@ -1,5 +1,6 @@
 [workspace]
 members = ["crates/*"]
+exclude = ["tools/gen-epsg-registry"]
 resolver = "2"
 
 [workspace.package]
@@ -15,3 +16,4 @@ rust-version = "1.85"
 proptest = "1"
 criterion = { version = "0.5", features = ["html_reports"] }
 projicio-core = { path = "crates/projicio-core", default-features = false }
+projicio-epsg-format = { path = "crates/projicio-epsg-format" }

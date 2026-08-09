@@ -3,8 +3,12 @@
 //! One call covers the browser need: transform a flat `[x0, y0, x1, y1, ...]`
 //! batch between two CRS, each named by an EPSG code, a proj4 projstring or a
 //! WKT definition (the content of a `.prj` sidecar).
+//!
+//! Datum shift grids come in as bytes, since there is no file system to read them
+//! from. Registration lasts as long as the wasm instance, so a page fetches a `.gsb`
+//! once and every later transform sees it.
 
-use projicio_core::Transform;
+use projicio_core::{Transform, grids};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -26,6 +30,30 @@ pub fn transform_coordinates(
         result.push(y);
     }
     Ok(result)
+}
+
+/// Register an NTv2 grid, under the name definitions refer to it by.
+///
+/// The bytes are the contents of a `.gsb` file, parsed here so a bad one is reported
+/// now rather than at the first transform. A name can be registered once.
+#[wasm_bindgen]
+pub fn register_grid(name: &str, bytes: &[u8]) -> Result<(), JsError> {
+    grids::register_bytes(name, bytes.to_vec()).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// The names of every grid registered so far, sorted.
+#[wasm_bindgen]
+pub fn registered_grids() -> Vec<String> {
+    grids::registered()
+}
+
+/// The grid names a CRS needs registering before it can transform, sorted.
+///
+/// Empty means registration is not what stands in the way. The spec is what
+/// `transform_coordinates` takes on either side.
+#[wasm_bindgen]
+pub fn missing_grids(spec: &str) -> Vec<String> {
+    grids::missing_grids(spec)
 }
 
 #[cfg(test)]

@@ -17,6 +17,7 @@ use crate::Error;
 use proj4rs::nadgrids::{Catalog, NadGrids, catalog, files};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Cursor;
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
@@ -118,6 +119,7 @@ pub fn register_bytes(name: &str, bytes: Vec<u8>) -> Result<(), Error> {
 ///
 /// The name is separate from the path because definitions do not agree on the two:
 /// `+datum=NAD27` names `conus`, while `+nadgrids=` usually names a full file name.
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 pub fn register_file(name: &str, path: impl AsRef<Path>) -> Result<(), Error> {
     let path = path.as_ref();
     let bytes = std::fs::read(path).map_err(|e| {

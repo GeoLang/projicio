@@ -17,8 +17,6 @@ mod ellipsoid;
 pub mod epsg;
 mod error;
 mod fallback;
-// proj4rs gates its grid reader off wasm32, so there is nothing to register there
-#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 pub mod grids;
 mod projection;
 pub mod projstring;

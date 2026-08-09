@@ -21,6 +21,7 @@ mod fallback;
 #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 pub mod grids;
 mod projection;
+pub mod projstring;
 mod transform;
 
 pub use datum::{

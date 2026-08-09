@@ -1,11 +1,17 @@
 use crate::{Coord, Ellipsoid, Error, Geographic};
 
+mod american_polyconic;
 mod cassini_soldner;
+mod equal_earth;
 mod hotine_oblique_mercator;
+mod laborde;
 mod series;
 
+pub use american_polyconic::AmericanPolyconic;
 pub use cassini_soldner::CassiniSoldner;
+pub use equal_earth::EqualEarth;
 pub use hotine_oblique_mercator::HotineObliqueMercator;
+pub use laborde::Laborde;
 
 /// Trait for map projections (geographic → projected and inverse).
 pub trait Projection {

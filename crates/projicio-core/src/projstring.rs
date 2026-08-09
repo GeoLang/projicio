@@ -6,7 +6,9 @@
 //! was silently dropped. A rejected definition leaves the EPSG code with the
 //! classification it already had.
 
-use crate::projection::{CassiniSoldner, HotineObliqueMercator, Projection};
+use crate::projection::{
+    AmericanPolyconic, CassiniSoldner, EqualEarth, HotineObliqueMercator, Laborde, Projection,
+};
 use crate::{
     Coord, Ellipsoid, Error, GeocentricCoord, Geographic, HelmertTransform, geocentric_to_geodetic,
     geodetic_to_geocentric,
@@ -184,9 +186,33 @@ impl NativeCrs {
                 false_northing,
                 offsets_at_centre,
             )?),
-            other => {
-                return Err(reject(format!("{other:?} has no projicio implementation")));
-            }
+            Method::AmericanPolyconic { lat_0, lon_0 } => Box::new(AmericanPolyconic::new(
+                ellipsoid,
+                lat_0,
+                lon_0,
+                false_easting,
+                false_northing,
+            )),
+            Method::EqualEarth { lon_0 } => Box::new(EqualEarth::new(
+                ellipsoid,
+                lon_0,
+                false_easting,
+                false_northing,
+            )),
+            Method::Laborde {
+                lat_0,
+                lon_0,
+                azimuth,
+                k_0,
+            } => Box::new(Laborde::new(
+                ellipsoid,
+                lat_0,
+                lon_0,
+                azimuth,
+                k_0,
+                false_easting,
+                false_northing,
+            )?),
         };
         Ok(Self {
             projection,

@@ -32,8 +32,9 @@ pub use ellipsoid::Ellipsoid;
 pub use epsg::Support;
 pub use error::Error;
 pub use projection::{
-    AlbersEqualArea, CassiniSoldner, HotineObliqueMercator, LambertConformalConic, Mercator,
-    PolarStereographic, Projection, TransverseMercator, WebMercator,
+    AlbersEqualArea, AmericanPolyconic, CassiniSoldner, EqualEarth, HotineObliqueMercator, Laborde,
+    LambertConformalConic, Mercator, PolarStereographic, Projection, TransverseMercator,
+    WebMercator,
 };
 pub use transform::Transform;
 

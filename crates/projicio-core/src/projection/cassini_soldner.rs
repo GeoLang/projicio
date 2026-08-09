@@ -151,7 +151,10 @@ impl Projection for CassiniSoldner {
         let lon = self.lon0
             + (d - t * d2 * d / 3.0 + (1.0 + 3.0 * t) * t * d4 * d / 15.0) / cos_footpoint;
 
-        Ok(Geographic::new(lon.to_degrees(), lat.to_degrees()))
+        Ok(Geographic::new(
+            normalize_longitude(lon).to_degrees(),
+            lat.to_degrees(),
+        ))
     }
 
     fn ellipsoid(&self) -> &Ellipsoid {

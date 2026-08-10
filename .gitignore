@@ -1,5 +1,6 @@
 /target
 /tools/gen-epsg-registry/target
+.claude/
 *.swp
 *.swo
 .DS_Store

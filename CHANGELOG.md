@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- 2026-08-15: docs list 11 native projections. Accuracy is native vs PROJ
+  to 1 mm, TM 5 mm at a UTM zone edge, not "sub-millimeter".
+
 ### Added
 
 - Native path built from an EPSG code's own proj4 definition, for the 64 codes proj4rs has

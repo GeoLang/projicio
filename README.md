@@ -27,8 +27,12 @@ No C PROJ, no GDAL. Pure Rust throughout, with 5935 EPSG codes embedded at compi
 - **WKT input** — `Transform::new` takes a `.prj` sidecar's WKT (1 or 2) on either side,
   converted at parse time by [`proj4wkt`](https://crates.io/crates/proj4wkt)
 - **5935 EPSG codes** — national grids, State Plane, UTM on any datum, across both engines
-- **Batch transforms** — transform thousands of coordinates efficiently
-- **Pure Rust** — no unsafe in projicio, no C dependencies, no build scripts, no runtime data files
+- **Reusable transforms** — build a `Transform` once and convert many coordinates through it;
+  `convert_batch` is that loop, not a vectorised path
+- **Pure Rust** — no C dependencies, no runtime data files. `#![forbid(unsafe_code)]` is on
+  `projicio-epsg-format`; `projicio-core` writes no unsafe but does not carry the attribute.
+  projicio's own crates have no build scripts, though the dependency tree compiles build
+  scripts for proc-macro2, quote, thiserror and proj4rs-geodesic
 
 ## Quick Start
 
@@ -90,8 +94,10 @@ parser rejects any definition carrying a parameter it does not fully implement, 
 either transforms exactly as its definition says or keeps reporting that it cannot.
 
 The 12 remaining gaps are a projection method nobody here implements (`cea`, `nzmg`), a
-prime meridian other than Greenwich, or an empty definition. The rest need a grid file you
-supply.
+prime meridian other than Greenwich, an empty definition, and two `omerc` definitions
+projicio does implement but rejects on a parameter: one carries `+vunits=m`, which nothing
+consumes and so the projstring parser refuses outright, and the other is `+units=us-ft`,
+which is not in the three-entry units table. The rest need a grid file you supply.
 
 ## EPSG metadata
 
@@ -267,7 +273,6 @@ axis units and datum shift those codes carry:
 | Mercator | 3395 |
 | Transverse Mercator | 27700, 25832, 31370 |
 | Lambert Conformal Conic | 2154, 26985, 2229 |
-| Lambert Azimuthal Equal Area | 3035 |
 | Albers Equal Area | 5070 |
 | Polar Stereographic | 3031, 3413 |
 

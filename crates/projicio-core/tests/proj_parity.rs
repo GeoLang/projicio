@@ -10,8 +10,9 @@
 // output is the expectation, so the corpus is points and tolerances only.
 
 use projicio_core::{
-    AlbersEqualArea, Coord, Ellipsoid, Geographic, LambertConformalConic, Mercator,
-    PolarStereographic, Projection, Support, Transform, TransverseMercator, WebMercator, epsg,
+    AlbersEqualArea, Coord, Ellipsoid, Geographic, LambertAzimuthalEqualArea,
+    LambertConformalConic, Mercator, PolarStereographic, Projection, Support, Transform,
+    TransverseMercator, WebMercator, epsg,
 };
 use std::io::Write;
 use std::process::{Command, Stdio};
@@ -315,6 +316,28 @@ fn native_cases() -> Vec<NativeCase> {
                 (30.0, 65.0),
                 (10.000001, 60.0),
                 (25.0, 35.0),
+            ],
+            projected_tolerance: NATIVE_PROJECTED_METERS,
+        },
+        NativeCase {
+            name: "lambert azimuthal equal area, europe",
+            projected: "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 \
+                        +ellps=GRS80 +units=m +no_defs",
+            geographic: GRS80_GEOGRAPHIC,
+            projection: Box::new(LambertAzimuthalEqualArea::new(
+                Ellipsoid::GRS80,
+                52.0,
+                10.0,
+                4_321_000.0,
+                3_210_000.0,
+            )),
+            points: &[
+                (10.0, 52.0),
+                (5.0, 50.0),
+                (-9.0, 40.0),
+                (30.0, 65.0),
+                (10.000001, 60.0),
+                (25.0, 71.0),
             ],
             projected_tolerance: NATIVE_PROJECTED_METERS,
         },

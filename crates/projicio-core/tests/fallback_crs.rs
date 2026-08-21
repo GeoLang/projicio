@@ -44,6 +44,14 @@ fn test_laea_europe_3035_iogp_worked_example() {
     assert!((n - 2_999_718.85).abs() < 0.01, "northing {n}");
 }
 
+#[test]
+fn test_laea_europe_3035_iogp_worked_example_inverse() {
+    let t = Transform::new("EPSG:3035", "EPSG:4258").unwrap();
+    let (lon, lat) = t.convert(3_962_799.45, 2_999_718.85).unwrap();
+    assert!((lon - 5.0).abs() < 1e-7, "longitude {lon}");
+    assert!((lat - 50.0).abs() < 1e-7, "latitude {lat}");
+}
+
 /// Lambert-93 easting and northing from the constants IGN publishes for the
 /// projection, using IGN's own forward algorithm.
 ///

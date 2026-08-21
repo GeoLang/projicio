@@ -48,6 +48,7 @@ pub enum ProjType {
     Geographic,
     TransverseMercator,
     LambertConformalConic,
+    LambertAzimuthalEqualArea,
     WebMercator,
     AlbersEqualArea,
     PolarStereographic,
@@ -175,6 +176,22 @@ pub fn lookup(code: u32) -> Option<CrsDef> {
             proj_type: ProjType::Geographic,
             ellipsoid: Ellipsoid::GRS80,
             params: ProjParams::zeroed(),
+        }),
+        // ETRS89 / ETRS-LAEA
+        3035 => Some(CrsDef {
+            code: 3035,
+            name: "ETRS89 / ETRS-LAEA",
+            proj_type: ProjType::LambertAzimuthalEqualArea,
+            ellipsoid: Ellipsoid::GRS80,
+            params: ProjParams {
+                lat_0: 52.0,
+                lon_0: 10.0,
+                k_0: 1.0,
+                x_0: 4_321_000.0,
+                y_0: 3_210_000.0,
+                lat_1: 0.0,
+                lat_2: 0.0,
+            },
         }),
         // OSGB 1936 / British National Grid
         27700 => Some(CrsDef {
@@ -353,6 +370,16 @@ mod tests {
     fn test_proj4_definition() {
         assert!(proj4_definition(3035).unwrap().contains("+proj=laea"));
         assert!(proj4_definition(99999).is_none());
+    }
+
+    #[test]
+    fn test_lookup_etrs_laea() {
+        let crs = lookup(3035).unwrap();
+        assert_eq!(crs.proj_type, ProjType::LambertAzimuthalEqualArea);
+        assert!((crs.params.lat_0 - 52.0).abs() < 1e-12);
+        assert!((crs.params.lon_0 - 10.0).abs() < 1e-12);
+        assert_eq!(crs.params.x_0, 4_321_000.0);
+        assert_eq!(crs.params.y_0, 3_210_000.0);
     }
 
     #[test]

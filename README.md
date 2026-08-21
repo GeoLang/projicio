@@ -15,6 +15,7 @@ No C PROJ, no GDAL. Pure Rust throughout, with 5935 EPSG codes embedded at compi
 - **Transverse Mercator / UTM** (EPSG:32601–32660, 32701–32760) — all 120 zones
 - **Mercator** (EPSG:3395) — ellipsoidal
 - **Lambert Conformal Conic** — 2SP variant
+- **Lambert Azimuthal Equal Area** — ellipsoidal, EPSG:3035
 - **Albers Equal Area** — conic equal-area projection
 - **Polar Stereographic** — for polar regions
 - **Cassini-Soldner, Hotine Oblique Mercator, American Polyconic, Equal Earth, Laborde** —

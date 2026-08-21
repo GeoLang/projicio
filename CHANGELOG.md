@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `LambertAzimuthalEqualArea` (EPSG method 9820), the ellipsoidal Lambert Azimuthal
+  Equal Area used by ETRS-LAEA (EPSG:3035).
 - Native path built from an EPSG code's own proj4 definition, for the 64 codes proj4rs has
   no projection method for. `epsg::support` reports `Support::Native` for them and
   `Transform` projects them with projicio's own math. Cassini-Soldner, Hotine Oblique
@@ -75,6 +77,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Landing page Quick Start called `Transform::forward`, which does not exist, and printed
+  Web Mercator coordinates 199 m and 265 m from the crate's own values.
 - `epsg::parse_wkt_epsg` on nested WKT returned the first `AUTHORITY`/`ID` code it saw,
   which is the datum's or spheroid's, not the CRS's. It now takes the last one.
 - `LambertConformalConic::inverse` recovered every longitude offset by a constant, from

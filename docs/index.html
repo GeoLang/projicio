@@ -54,7 +54,7 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 <a href="./api/" class="secondary">API docs</a>
 </div>
 <div class="stats">
-<div class="stat"><div class="num">11</div><div class="label">Native projections</div></div>
+<div class="stat"><div class="num">12</div><div class="label">Native projections</div></div>
 <div class="stat"><div class="num">5</div><div class="label">Ellipsoids</div></div>
 <div class="stat"><div class="num">120</div><div class="label">UTM zones</div></div>
 <div class="stat"><div class="num">0</div><div class="label">C dependencies</div></div>
@@ -73,6 +73,7 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 <li>Transverse Mercator / UTM (zones 1–60, north and south)</li>
 <li>Mercator (ellipsoidal, EPSG:3395)</li>
 <li>Lambert Conformal Conic (2 standard parallels)</li>
+<li>Lambert Azimuthal Equal Area (ellipsoidal, EPSG:3035)</li>
 <li>Albers Equal Area (conic equal-area)</li>
 <li>Polar Stereographic</li>
 <li>Cassini-Soldner, Hotine Oblique Mercator, American Polyconic, Equal Earth, Laborde</li>
@@ -114,12 +115,12 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 <section>
 <div class="container">
 <h2>Quick Start</h2>
-<pre><code>use projicio_core::{Transform, Coord};
+<pre><code>use projicio_core::Transform;
 
 // Transform from WGS84 geographic to Web Mercator
 let transform = Transform::new("EPSG:4326", "EPSG:3857").unwrap();
-let result = transform.forward(&amp;Coord::new(-73.9857, 40.7484)).unwrap();
-// → (x: -8235851.2, y: 4975566.5) meters</code></pre>
+let (x, y) = transform.convert(-73.9857, 40.7484).unwrap();
+// → (x: -8236050.4, y: 4975301.3) meters</code></pre>
 <pre><code># CLI usage
 projicio transform --from EPSG:4326 --to EPSG:3857 -- -73.9857 40.7484</code></pre>
 </div>

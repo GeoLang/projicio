@@ -63,6 +63,18 @@ proptest! {
         }
     }
 
+    /// Lambert Azimuthal Equal Area roundtrip over Europe, ETRS-LAEA parameters.
+    #[test]
+    fn lambert_azimuthal_equal_area_roundtrip(
+        lon in -10.0f64..40.0,
+        lat in 35.0f64..75.0,
+    ) {
+        let projection = LambertAzimuthalEqualArea::new(
+            Ellipsoid::GRS80, 52.0, 10.0, 4_321_000.0, 3_210_000.0,
+        );
+        roundtrip(&projection, lon, lat, 1e-7)?;
+    }
+
     /// Polar stereographic forward+inverse roundtrip, both aspects.
     #[test]
     fn polar_stereographic_roundtrip(

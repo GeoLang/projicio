@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- 2026-08-21: landing page no longer lists Cassini-Soldner, Hotine,
+  American Polyconic, Equal Earth and Laborde as implemented. The fallback
+  engine has no implementation for them.
 - 2026-08-15: docs list 11 native projections. Accuracy is native vs PROJ
   to 1 mm, TM 5 mm at a UTM zone edge, not "sub-millimeter".
 

@@ -19,7 +19,7 @@ No C PROJ, no GDAL. Pure Rust throughout, with 5935 EPSG codes embedded at compi
 - **Albers Equal Area** — conic equal-area projection
 - **Polar Stereographic** — for polar regions
 - **Cassini-Soldner, Hotine Oblique Mercator, American Polyconic, Equal Earth, Laborde** —
-  the methods the fallback engine has no implementation for
+  native projection methods used by projicio's own path
 - **Helmert 7-parameter datum transforms** — translation, rotation, scale (geocentric)
 - **NTv2 grid shifts** — register a `.gsb` at runtime and transforms use it (OSTN15, NAD27, etc.)
 - **Datum transforms** — geodetic ↔ geocentric conversion pipeline

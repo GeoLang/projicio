@@ -247,6 +247,7 @@ definition itself asks for.
 projicio-core        — Projection math, ellipsoids, datum transforms, NTv2, CRS registry, fallback engine
 projicio-epsg-format — Binary layout of the embedded EPSG metadata registry
 projicio-cli         — Command-line interface
+projicio-wasm        — WebAssembly bindings, built with wasm-pack --target web
 ```
 
 ## Supported CRS
@@ -274,6 +275,7 @@ axis units and datum shift those codes carry:
 | Mercator | 3395 |
 | Transverse Mercator | 27700, 25832, 31370 |
 | Lambert Conformal Conic | 2154, 26985, 2229 |
+| Lambert Azimuthal Equal Area | 3035 |
 | Albers Equal Area | 5070 |
 | Polar Stereographic | 3031, 3413 |
 

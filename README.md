@@ -5,7 +5,7 @@
 
 **Pure-Rust coordinate reference system and map projection engine.**
 
-No C PROJ, no GDAL. Pure Rust throughout, with 5935 EPSG codes embedded at compile time.
+No C PROJ, no GDAL. Pure Rust throughout, with 5935 EPSG codes.
 
 [Documentation](https://geolang.github.io/projicio/) · [GitHub](https://github.com/GeoLang/projicio)
 

@@ -28,11 +28,11 @@ jobs:
   parity:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Cache PROJ
         id: proj-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.PROJ_PREFIX }}
           key: proj-${{ env.PROJ_VERSION }}-${{ runner.os }}-${{ runner.arch }}

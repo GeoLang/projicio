@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- 2026-09-16: docs match the code. The README breaks the 12 unresolvable codes
+  into their four causes with a count each, where it read as one empty
+  definition and there are two. The landing page quotes the accuracy the parity
+  suite observes against PROJ 9.6 rather than the tolerance it allows, carries
+  the CI badge instead of a hardcoded green one, and drops "fast, accurate"
+  from the tagline.
 - 2026-08-21: landing page no longer lists Cassini-Soldner, Hotine,
   American Polyconic, Equal Earth and Laborde as implemented. The fallback
   engine has no implementation for them.

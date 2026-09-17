@@ -41,11 +41,11 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 <header>
 <div class="container">
 <h1>🌐 Projicio</h1>
-<p class="tagline">Pure-Rust coordinate reference system projection engine — fast, accurate, zero C dependencies.</p>
+<p class="tagline">Pure-Rust coordinate reference system projection engine. No C PROJ, no GDAL, nothing to read from disk.</p>
 <div class="badges">
 <img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License">
 <img src="https://img.shields.io/badge/Rust-2024-orange" alt="Rust">
-<img src="https://img.shields.io/badge/tests-passing-brightgreen" alt="Tests">
+<img src="https://github.com/GeoLang/projicio/actions/workflows/ci.yml/badge.svg" alt="CI">
 </div>
 <div class="hero">
 <a href="https://github.com/GeoLang/projicio">GitHub</a>
@@ -97,7 +97,7 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 <li>Forward and inverse transforms</li>
 <li>Thread-safe (Send + Sync)</li>
 <li>All 120 UTM zones (60 north, 60 south)</li>
-<li>Native vs PROJ to 1 mm (TM 5 mm at a UTM zone edge)</li>
+<li>Compared against PROJ 9.6 by a scheduled CI job: the closed-form projections agree to about 1e-8 m, and transverse mercator to 0.8 mm at the edge of a UTM zone</li>
 </ul>
 </div>
 <div class="card">

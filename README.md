@@ -94,11 +94,12 @@ Hotine Oblique Mercator, American Polyconic, Equal Earth and Laborde grids resol
 parser rejects any definition carrying a parameter it does not fully implement, so a code
 either transforms exactly as its definition says or keeps reporting that it cannot.
 
-The 12 remaining gaps are a projection method nobody here implements (`cea`, `nzmg`), a
-prime meridian other than Greenwich, an empty definition, and two `omerc` definitions
-projicio does implement but rejects on a parameter: one carries `+vunits=m`, which nothing
-consumes and so the projstring parser refuses outright, and the other is `+units=us-ft`,
-which is not in the three-entry units table. The rest need a grid file you supply.
+The 12 remaining gaps break down as four for a projection method nobody here implements
+(three `cea`, one `nzmg`), four for a prime meridian other than Greenwich (two on Ferro,
+two on Paris), two empty definitions, and two `omerc` definitions projicio does implement
+but rejects on a parameter: one carries `+vunits=m`, which nothing consumes and so the
+projstring parser refuses outright, and the other is `+units=us-ft`, which is not in the
+three-entry units table. The 237 codes outside that 12 need a grid file you supply.
 
 ## EPSG metadata
 

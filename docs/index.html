@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Projicio — Pure-Rust CRS Projection Engine</title>
+<title>Projicio: Pure-Rust CRS Projection Engine</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#c9d1d9;--heading:#f0f6fc;--accent:#58a6ff;--accent2:#3fb950;--muted:#8b949e}
@@ -40,8 +40,8 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 <body>
 <header>
 <div class="container">
-<h1>🌐 Projicio</h1>
-<p class="tagline">Pure-Rust coordinate reference system projection engine. No C PROJ, no GDAL, nothing to read from disk.</p>
+<h1>Projicio</h1>
+<p class="tagline">Pure-Rust coordinate reference system and map projection engine. No C PROJ, no GDAL, no data files to install.</p>
 <div class="badges">
 <img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License">
 <img src="https://img.shields.io/badge/Rust-2024-orange" alt="Rust">
@@ -68,40 +68,40 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 <h2 id="projections">Features</h2>
 <div class="grid">
 <div class="card">
-<h3>📐 Projections</h3>
+<h3>Projections</h3>
 <ul>
 <li>Web Mercator (EPSG:3857)</li>
-<li>Transverse Mercator / UTM (zones 1–60, north and south)</li>
+<li>Transverse Mercator / UTM (zones 1 to 60, north and south)</li>
 <li>Mercator (ellipsoidal, EPSG:3395)</li>
 <li>Lambert Conformal Conic (2 standard parallels)</li>
 <li>Lambert Azimuthal Equal Area (ellipsoidal, EPSG:3035)</li>
 <li>Albers Equal Area (conic equal-area)</li>
 <li>Polar Stereographic</li>
-<li>Cassini-Soldner, Hotine Oblique Mercator, American Polyconic, Equal Earth, Laborde: native projection methods in projicio's own path</li>
+<li>Cassini-Soldner, Hotine Oblique Mercator, American Polyconic, Equal Earth, Laborde: projicio's own math for EPSG codes proj4rs cannot build</li>
 </ul>
 </div>
 <div class="card">
-<h3>🌍 Ellipsoids</h3>
+<h3>Ellipsoids</h3>
 <ul>
 <li>WGS84 (GPS standard)</li>
 <li>GRS80 (geodetic reference)</li>
 <li>Clarke 1866 (NAD27)</li>
 <li>International 1924</li>
-<li>Unit sphere</li>
+<li>Sphere of WGS84 radius (Web Mercator)</li>
 </ul>
 </div>
 <div class="card">
-<h3>🔄 Transform API</h3>
+<h3>Transform API</h3>
 <ul>
-<li>High-level EPSG code interface</li>
+<li>EPSG code, proj4 projstring or WKT on either side</li>
 <li>Forward and inverse transforms</li>
 <li>Thread-safe (Send + Sync)</li>
 <li>All 120 UTM zones (60 north, 60 south)</li>
-<li>Compared against PROJ 9.6 by a scheduled CI job: the closed-form projections agree to about 1e-8 m, and transverse mercator to 0.8 mm at the edge of a UTM zone</li>
+<li>Compared against PROJ 9.6.2 <code>cs2cs</code> by a weekly CI job: the closed-form projections agree to about 1e-8 m, transverse mercator to 0.8 mm at the edge of a UTM zone at 60 degrees north</li>
 </ul>
 </div>
 <div class="card">
-<h3>🖥️ CLI</h3>
+<h3>CLI</h3>
 <ul>
 <li>Transform one coordinate pair between any supported CRS</li>
 <li>An EPSG code or a proj4 projstring on either side</li>
@@ -110,12 +110,12 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 </ul>
 </div>
 <div class="card">
-<h3>🗺️ CRS coverage</h3>
+<h3>CRS coverage</h3>
 <ul>
 <li>5935 EPSG codes resolve, 186 of them on projicio's own math</li>
 <li>The rest go to proj4rs over an embedded proj4 definition table</li>
 <li>NTv2 datum shift grids registered at runtime, from a path or from bytes</li>
-<li>EPSG names, deprecation flags and areas of use from an embedded blob</li>
+<li>EPSG names, deprecation flags, datums and areas of use from an embedded blob (the <code>registry</code> feature)</li>
 <li>WKT1 and WKT2 read wherever an EPSG code is accepted</li>
 <li>WebAssembly bindings, grid registration included</li>
 </ul>
@@ -132,7 +132,7 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 // Transform from WGS84 geographic to Web Mercator
 let transform = Transform::new("EPSG:4326", "EPSG:3857").unwrap();
 let (x, y) = transform.convert(-73.9857, 40.7484).unwrap();
-// → (x: -8236050.4, y: 4975301.3) meters</code></pre>
+// x = -8236050.4, y = 4975301.3, in metres</code></pre>
 <pre><code># CLI usage
 projicio transform --from EPSG:4326 --to EPSG:3857 -- -73.9857 40.7484</code></pre>
 </div>

@@ -3,35 +3,35 @@
 [![CI](https://github.com/GeoLang/projicio/actions/workflows/ci.yml/badge.svg)](https://github.com/GeoLang/projicio/actions)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 
-**Pure-Rust coordinate reference system and map projection engine.**
+Pure-Rust coordinate reference system and map projection engine.
 
-No C PROJ, no GDAL. Pure Rust throughout, with 5935 EPSG codes.
+Transforms coordinates between 5935 EPSG codes without linking C PROJ or GDAL.
 
 [Documentation](https://geolang.github.io/projicio/) · [GitHub](https://github.com/GeoLang/projicio)
 
 ## Features
 
-- **Web Mercator** (EPSG:3857) — forward and inverse
-- **Transverse Mercator / UTM** (EPSG:32601–32660, 32701–32760) — all 120 zones
-- **Mercator** (EPSG:3395) — ellipsoidal
-- **Lambert Conformal Conic** — 2SP variant
-- **Lambert Azimuthal Equal Area** — ellipsoidal, EPSG:3035
-- **Albers Equal Area** — conic equal-area projection
-- **Polar Stereographic** — for polar regions
-- **Cassini-Soldner, Hotine Oblique Mercator, American Polyconic, Equal Earth, Laborde** —
-  native projection methods used by projicio's own path
-- **Helmert 7-parameter datum transforms** — translation, rotation, scale (geocentric)
-- **NTv2 grid shifts** — register a `.gsb` at runtime and transforms use it (OSTN15, NAD27, etc.)
-- **Datum transforms** — geodetic ↔ geocentric conversion pipeline
-- **Ellipsoids** — WGS84, GRS80, Clarke 1866, International 1924, unit sphere
-- **EPSG code dispatch** — `Transform::new("EPSG:4326", "EPSG:3857")`
-- **WKT input** — `Transform::new` takes a `.prj` sidecar's WKT (1 or 2) on either side,
+- **Web Mercator** (EPSG:3857): forward and inverse
+- **Transverse Mercator / UTM** (EPSG:32601-32660, 32701-32760): all 120 zones
+- **Mercator** (EPSG:3395): ellipsoidal
+- **Lambert Conformal Conic**: 2SP variant
+- **Lambert Azimuthal Equal Area**: ellipsoidal, EPSG:3035
+- **Albers Equal Area**: conic equal-area projection
+- **Polar Stereographic**: north and south polar projections
+- **Cassini-Soldner, Hotine Oblique Mercator, American Polyconic, Equal Earth, Laborde**:
+  projicio's own math for EPSG codes proj4rs cannot build
+- **Helmert 7-parameter datum transforms**: translation, rotation, scale (geocentric)
+- **NTv2 grid shifts**: register a `.gsb` at runtime and transforms use it (OSTN15, NAD27 and others)
+- **Datum transforms**: geodetic to geocentric conversion and back
+- **Ellipsoids**: WGS84, GRS80, Clarke 1866, International 1924, and a sphere of WGS84 radius
+- **EPSG code dispatch**: `Transform::new("EPSG:4326", "EPSG:3857")`, or a proj4 projstring starting with `+` on either side
+- **WKT input**: `Transform::new` takes a `.prj` sidecar's WKT (1 or 2) on either side,
   converted at parse time by [`proj4wkt`](https://crates.io/crates/proj4wkt)
-- **5935 EPSG codes** — national grids, State Plane, UTM on any datum, across both engines
-- **Reusable transforms** — build a `Transform` once and convert many coordinates through it;
-  `convert_batch` is that loop, not a vectorised path
-- **Pure Rust** — no C dependencies, no runtime data files. `#![forbid(unsafe_code)]` is on
-  `projicio-epsg-format`; `projicio-core` writes no unsafe but does not carry the attribute.
+- **5935 EPSG codes**: national grids, State Plane, UTM on any datum, across both engines
+- **Reusable transforms**: build a `Transform` once and convert many coordinates through it.
+  `convert_batch` is that loop, not a vectorised path. `Transform::path` reports which engine it resolved to
+- **Pure Rust**: no C dependencies, no runtime data files. `#![forbid(unsafe_code)]` is on
+  `projicio-epsg-format`. `projicio-core` writes no unsafe but does not carry the attribute.
   projicio's own crates have no build scripts, though the dependency tree compiles build
   scripts for proc-macro2, quote, thiserror and proj4rs-geodesic
 
@@ -47,8 +47,8 @@ projicio info EPSG:27700
 # Supply a datum shift grid, as NAME=PATH
 projicio --grid conus=/data/proj/conus transform --from EPSG:4267 --to EPSG:4326 -- -100 35
 
-# Library usage
-cargo add projicio-core
+# Library usage, from git since the crates are not on crates.io
+cargo add projicio-core --git https://github.com/GeoLang/projicio
 ```
 
 ```rust
@@ -61,7 +61,7 @@ println!("NYC in Web Mercator: {x}, {y}");
 
 ## CRS Coverage
 
-Two engines sit behind the same API, both reading the same embedded proj4 definition table
+`Transform` uses one of two engines, both reading the same embedded proj4 definition table
 ([`crs-definitions`](https://crates.io/crates/crs-definitions)). Codes projicio can build
 itself take its own projection math, either from its hand-written table or by parsing the
 definition. Everything else is transformed by [`proj4rs`](https://crates.io/crates/proj4rs),
@@ -124,7 +124,8 @@ A coordinate outside a CRS's area of use still transforms. `applies_at` reports 
 intends the code for, not what projicio will do with it, and answers `None` when EPSG
 records no area of use.
 
-This is metadata only. Which engine transforms a code, and whether it can, is still
+`epsg::datum_aliases(datum_code)` lists every name EPSG records for a datum. This is
+metadata only. Which engine transforms a code, and whether it can, is still
 `epsg::support`.
 
 The data is a binary blob generated from PROJ's proj.db by `tools/gen-epsg-registry`, a
@@ -133,7 +134,8 @@ package outside the workspace so that building or testing projicio never builds 
 came from, its checksum and its record counts, and CI regenerates the blob from a pinned
 PROJ build to prove it still matches byte for byte.
 
-Turn the `registry` feature off to leave the blob out. The wasm bindings already do.
+Turn the `registry` feature off to leave the blob out. The wasm bindings and the CLI
+already do, so `projicio info` prints the proj4 definition but no EPSG metadata.
 
 Contains data from the EPSG Dataset, © IOGP, at the version recorded in the provenance
 file, obtained through PROJ's proj.db. Terms of use are at
@@ -187,8 +189,8 @@ transform_coordinates("EPSG:4267", "EPSG:4326", new Float64Array([-100, 35]));
 ```
 
 `registered_grids()` lists what this instance holds. NTv2 parsing on wasm32 comes from a
-patched proj4rs, pinned in the workspace `Cargo.toml`, which retires when proj4rs 0.2.0
-ships the same change.
+patched proj4rs, pinned under `[patch.crates-io]` in the workspace `Cargo.toml` until
+proj4rs 0.2.0 ships the same change.
 
 ### OSTN15 for the British National Grid
 
@@ -213,7 +215,7 @@ Pick the OSTN15 links, not the superseded OSTN02 ones still listed there. OS dis
 the grid free of charge, and publishes it under the Open Government Licence 3.0 in their
 own [os-transform repository](https://github.com/OrdnanceSurvey/os-transform). Download it
 from OS rather than relying on a redistributed copy. OSTN15 covers the horizontal
-transformation, which is all that 2D easting and northing work needs; the separate OSGM15
+transformation, which is all that 2D easting and northing work needs. The separate OSGM15
 geoid model is for heights.
 
 No OS data ships with this crate, so projicio's own tests drive the same code path with a
@@ -232,9 +234,18 @@ file.
 
 ## Accuracy
 
-Projections within one datum are exact to the published formulas. The test suite checks
-that against IOGP Guidance Note 7-2 worked examples, NOAA NGS datasheets and IGN's
-published Lambert-93 constants.
+Projections within one datum follow the published formulas. The test suite checks them
+against IOGP Guidance Note 7-2 worked examples, NOAA NGS datasheets and IGN's published
+Lambert-93 constants. Transverse Mercator sums a sixth-order series where PROJ solves
+exactly, which differs by 0.8 mm at the edge of a UTM zone at 60 degrees north and more
+further out.
+
+The parity suite compares transforms against C PROJ's `cs2cs`. CI runs it weekly against
+PROJ 9.6.2 (`.github/workflows/parity.yml`), and locally it runs with:
+
+```bash
+PROJICIO_CS2CS=/usr/bin/cs2cs cargo test -p projicio-core --test proj_parity -- --ignored
+```
 
 Between two different datums the accuracy depends on what the definition carries: a
 registered grid where one is named, otherwise the 7-parameter Helmert shift in the
@@ -245,10 +256,10 @@ definition itself asks for.
 ## Architecture
 
 ```
-projicio-core        — Projection math, ellipsoids, datum transforms, NTv2, CRS registry, fallback engine
-projicio-epsg-format — Binary layout of the embedded EPSG metadata registry
-projicio-cli         — Command-line interface
-projicio-wasm        — WebAssembly bindings, built with wasm-pack --target web
+projicio-core:         projection math, ellipsoids, datum transforms, NTv2, CRS registry, fallback engine
+projicio-epsg-format:  binary layout of the embedded EPSG metadata registry
+projicio-cli:          command-line interface
+projicio-wasm:         WebAssembly bindings, built with wasm-pack build --target web
 ```
 
 ## Supported CRS
@@ -259,12 +270,12 @@ Native path, projicio's own projection math:
 |--------|------------|
 | WGS84 Geographic | 4326 |
 | Web Mercator | 3857 |
-| UTM North | 32601–32660 |
-| UTM South | 32701–32760 |
-| Cassini-Soldner | 30200, 3377–3385, 28191 |
+| UTM North | 32601-32660 |
+| UTM South | 32701-32760 |
+| Cassini-Soldner | 30200, 3377-3385, 28191 |
 | Hotine Oblique Mercator | 29873, 3376, 6808, 8065 |
 | American Polyconic | 5880, 29101 |
-| Equal Earth | 8857–8859 |
+| Equal Earth | 8857-8859 |
 | Laborde | 8441 |
 
 The projection types below are implemented natively and usable directly, but

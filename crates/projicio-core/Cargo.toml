@@ -17,7 +17,7 @@ registry = ["dep:projicio-epsg-format"]
 [dependencies]
 crs-definitions = { version = "0.5", default-features = false, features = ["proj4"] }
 projicio-epsg-format = { workspace = true, optional = true }
-proj4rs = { version = "0.1.10", default-features = false, features = ["multi-thread", "krovak"] }
+proj4rs = { version = "0.2.0", default-features = false, features = ["multi-thread", "krovak"] }
 proj4wkt = { version = "0.1.1", default-features = false }
 thiserror = "2"
 

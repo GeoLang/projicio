@@ -167,6 +167,7 @@ pub(crate) fn parse_spec(s: &str) -> Result<Spec, Error> {
     if trimmed.starts_with('+') {
         Ok(Spec::Proj4(trimmed.to_string()))
     } else if is_wkt(trimmed) {
+        refuse_oversized_wkt(trimmed)?;
         // a WKT naming its EPSG code resolves by code, which keeps the native
         // path and the embedded datum handling; codeless WKT (typical for an
         // ESRI .prj) converts to a projstring for the fallback engine
@@ -179,6 +180,37 @@ pub(crate) fn parse_spec(s: &str) -> Result<Spec, Error> {
     } else {
         parse_epsg(trimmed).map(Spec::Epsg)
     }
+}
+
+const MOST_WKT_BYTES: usize = 64 * 1024;
+const MOST_WKT_NESTING: usize = 32;
+
+fn refuse_oversized_wkt(wkt: &str) -> Result<(), Error> {
+    if wkt.len() > MOST_WKT_BYTES {
+        return Err(Error::UnsupportedCrs(format!(
+            "WKT of {} bytes, past the {MOST_WKT_BYTES} byte limit",
+            wkt.len()
+        )));
+    }
+    // proj4wkt 0.1.1 recurses once per `[` with no limit, and a stack overflow aborts the process
+    let mut nesting = 0usize;
+    let mut in_quotes = false;
+    for byte in wkt.bytes() {
+        match byte {
+            b'"' => in_quotes = !in_quotes,
+            // proj4wkt skips quoted names, so a `]` in one closes nothing and must not lower the count
+            _ if in_quotes => {}
+            b'[' | b'(' => nesting += 1,
+            b']' | b')' => nesting = nesting.saturating_sub(1),
+            _ => {}
+        }
+        if nesting > MOST_WKT_NESTING {
+            return Err(Error::UnsupportedCrs(format!(
+                "WKT with nesting past the {MOST_WKT_NESTING} level limit"
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// A WKT CRS definition starts with a keyword followed by a bracketed body,
@@ -398,6 +430,28 @@ mod tests {
     fn test_transform_bad_wkt_errors() {
         let err = Transform::new("PROJCS[\"broken\"", "EPSG:4326").unwrap_err();
         assert!(matches!(err, Error::UnsupportedCrs(_)), "{err}");
+    }
+
+    #[test]
+    fn nesting_past_the_limit_is_refused_before_any_parse() {
+        let err = Transform::new(&"A[".repeat(MOST_WKT_NESTING + 1), "EPSG:4326").unwrap_err();
+        assert!(err.to_string().contains("nesting"), "{err}");
+
+        assert!(refuse_oversized_wkt(&"A[".repeat(MOST_WKT_NESTING)).is_ok());
+    }
+
+    #[test]
+    fn a_closing_bracket_inside_a_quoted_name_does_not_hide_nesting() {
+        let err =
+            Transform::new(&"A[\"]\",".repeat(MOST_WKT_NESTING + 1), "EPSG:4326").unwrap_err();
+        assert!(err.to_string().contains("nesting"), "{err}");
+    }
+
+    #[test]
+    fn a_wkt_past_the_byte_limit_is_refused() {
+        let padded = format!("A[{}]", " ".repeat(MOST_WKT_BYTES));
+        let err = Transform::new(&padded, "EPSG:4326").unwrap_err();
+        assert!(err.to_string().contains("byte limit"), "{err}");
     }
 
     #[test]

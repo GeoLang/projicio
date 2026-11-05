@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- 2026-11-05: `Transform::new` and `missing_grids` refuse a WKT past 64 KiB or
+  nested past 32 levels before parsing it, because proj4wkt recurses once per
+  `[` with no limit and a stack overflow aborts the process.
+- 2026-11-04: CI and the release workflow call the reusable workflows in
+  `GeoLang/.github`. The `projicio-<target>.tar.gz` archives are unchanged.
 - 2026-09-16: docs match the code. The README breaks the 12 unresolvable codes
   into their four causes with a count each, where it read as one empty
   definition and there are two. The landing page quotes the accuracy the parity

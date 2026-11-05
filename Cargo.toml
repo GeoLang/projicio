@@ -17,6 +17,6 @@ proj4rs = { git = "https://github.com/GeoLang/proj4rs", rev = "40e508c15f15c6c0a
 
 [workspace.dependencies]
 proptest = "1"
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "0.8", features = ["html_reports"] }
 projicio-core = { path = "crates/projicio-core", default-features = false }
 projicio-epsg-format = { path = "crates/projicio-epsg-format" }

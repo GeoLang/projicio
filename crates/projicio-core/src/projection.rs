@@ -2,7 +2,7 @@ use crate::{Coord, Ellipsoid, Error, Geographic};
 
 mod american_polyconic;
 mod cassini_soldner;
-mod epsg_method;
+pub(crate) mod epsg_method;
 mod equal_earth;
 mod hotine_oblique_mercator;
 mod laborde;

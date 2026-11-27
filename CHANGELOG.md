@@ -31,6 +31,15 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- 2026-11-27: `transformation_from_epsg_method` builds a datum transformation between
+  geographic CRSs from an EPSG method code, its parameters in SI units and both
+  ellipsoids, and `geocentric_transformation_from_epsg_method` the Helmert behind it for
+  geocentric CRSs. It covers geocentric translations, position vector, coordinate frame,
+  full matrix coordinate frame, their time-dependent forms, Molodensky-Badekas, longitude
+  rotation and geographic 2D offsets, ported from PROJ's `helmert.cpp`, `cart.cpp`,
+  `affine.cpp` and `singleoperation.cpp`. Time-dependent methods raise without a
+  coordinate epoch. `examples/transformation_batch.rs` runs one case per stdin line.
+  `Transform` does not use it yet.
 - 2026-11-27: PROJ's gie tests and the IOGP GIGS datasets run against `Transform`, with
   `examples/gie_report.rs` printing passes, failures and skip reasons per file, and
   `tests/proj_gie.rs` failing when a case listed in `tests/data/gie_passing.txt` stops

@@ -17,7 +17,7 @@ mod krovak;
 mod labrd;
 mod laea;
 mod lcc;
-mod math;
+pub(crate) mod math;
 mod merc;
 mod nzmg;
 mod omerc;
@@ -29,7 +29,7 @@ mod sterea;
 mod tmerc;
 mod tmerczoned;
 
-use math::adjlon;
+use math::{adjlon, prepare_angular_input};
 
 const LATITUDE_OF_NATURAL_ORIGIN: u32 = 8801;
 const LONGITUDE_OF_NATURAL_ORIGIN: u32 = 8802;
@@ -60,9 +60,9 @@ const ELLIPSOID_SCALING_FACTOR: u32 = 1038;
 const PROJECTION_PLANE_ORIGIN_HEIGHT: u32 = 1039;
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct LambdaPhi {
-    pub(super) lambda: f64,
-    pub(super) phi: f64,
+pub(crate) struct LambdaPhi {
+    pub(crate) lambda: f64,
+    pub(crate) phi: f64,
 }
 
 pub(super) trait ClassicProjection {
@@ -71,14 +71,14 @@ pub(super) trait ClassicProjection {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct EllipsoidConstants {
-    pub(super) a: f64,
-    pub(super) f: f64,
-    pub(super) es: f64,
-    pub(super) e: f64,
-    pub(super) one_es: f64,
-    pub(super) rone_es: f64,
-    pub(super) n: f64,
+pub(crate) struct EllipsoidConstants {
+    pub(crate) a: f64,
+    pub(crate) f: f64,
+    pub(crate) es: f64,
+    pub(crate) e: f64,
+    pub(crate) one_es: f64,
+    pub(crate) rone_es: f64,
+    pub(crate) n: f64,
 }
 
 impl EllipsoidConstants {
@@ -106,7 +106,7 @@ impl EllipsoidConstants {
         })
     }
 
-    fn from_ellipsoid(ellipsoid: &Ellipsoid) -> Result<Self, Error> {
+    pub(crate) fn from_ellipsoid(ellipsoid: &Ellipsoid) -> Result<Self, Error> {
         Self::new(ellipsoid.a, ellipsoid.f)
     }
 
@@ -129,27 +129,14 @@ struct EpsgMethodProjection {
     classic: Box<dyn ClassicProjection + Send + Sync>,
 }
 
-const PJ_EPS_LAT: f64 = 1e-12;
-
 impl Projection for EpsgMethodProjection {
     fn forward(&self, geo: Geographic) -> Result<Coord, Error> {
-        let mut phi = geo.lat.to_radians();
-        let lambda = geo.lon.to_radians();
-        if phi.is_nan() || phi.abs() - FRAC_PI_2 > PJ_EPS_LAT {
-            return Err(Error::InvalidCoordinate(format!(
-                "latitude {} out of range",
-                geo.lat
-            )));
-        }
-        if lambda.is_nan() || lambda.abs() > 10.0 {
-            return Err(Error::InvalidCoordinate(format!(
-                "longitude {} out of range",
-                geo.lon
-            )));
-        }
-        phi = phi.clamp(-FRAC_PI_2, FRAC_PI_2);
-        let lambda = adjlon(adjlon(lambda) - self.lam0);
-        let xy = self.classic.forward(LambdaPhi { lambda, phi })?;
+        let prepared = prepare_angular_input(geo.lon.to_radians(), geo.lat.to_radians())?;
+        let lambda = adjlon(prepared.lambda - self.lam0);
+        let xy = self.classic.forward(LambdaPhi {
+            lambda,
+            phi: prepared.phi,
+        })?;
         if !(xy.x.is_finite() && xy.y.is_finite()) {
             return Err(Error::ProjectionError(
                 "coordinate outside the projection domain".into(),
@@ -181,13 +168,13 @@ impl Projection for EpsgMethodProjection {
     }
 }
 
-struct Parameters<'a> {
-    method_code: u32,
-    values: &'a [(u32, f64)],
+pub(crate) struct Parameters<'a> {
+    pub(crate) method_code: u32,
+    pub(crate) values: &'a [(u32, f64)],
 }
 
 impl Parameters<'_> {
-    fn get(&self, parameter_code: u32) -> Result<f64, Error> {
+    pub(crate) fn get(&self, parameter_code: u32) -> Result<f64, Error> {
         self.values
             .iter()
             .find(|(code, _)| *code == parameter_code)
@@ -217,7 +204,7 @@ impl Parameters<'_> {
         Ok(())
     }
 
-    fn unsupported_value(&self, parameter_code: u32, value: f64) -> Error {
+    pub(crate) fn unsupported_value(&self, parameter_code: u32, value: f64) -> Error {
         Error::ProjectionError(format!(
             "EPSG method {}: unsupported value {value} for parameter {parameter_code}",
             self.method_code

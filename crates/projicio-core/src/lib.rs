@@ -18,6 +18,7 @@
 //! the `registry` module looks up by code.
 
 mod datum;
+mod datum_transformation;
 mod ellipsoid;
 pub mod epsg;
 mod error;
@@ -33,6 +34,10 @@ mod transform;
 pub use datum::{
     GeocentricCoord, HelmertTransform, geocentric_to_geodetic, geodetic_to_geocentric,
     transform_datum,
+};
+pub use datum_transformation::{
+    DatumTransformation, GeocentricConversion, GeodeticCoord, Helmert,
+    geocentric_transformation_from_epsg_method, transformation_from_epsg_method,
 };
 pub use ellipsoid::Ellipsoid;
 pub use epsg::Support;

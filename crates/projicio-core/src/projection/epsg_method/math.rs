@@ -1,4 +1,4 @@
-// adapted from PROJ src/latitudes.cpp, src/mlfn.cpp, src/tsfn.cpp, src/msfn.cpp, src/phi2.cpp, src/adjlon.cpp, src/aasincos.cpp, src/generic_inverse.cpp (MIT), see LICENSES/PROJ-MIT.txt
+// adapted from PROJ src/latitudes.cpp, src/mlfn.cpp, src/tsfn.cpp, src/msfn.cpp, src/phi2.cpp, src/adjlon.cpp, src/aasincos.cpp, src/generic_inverse.cpp, src/fwd.cpp (MIT), see LICENSES/PROJ-MIT.txt
 
 use std::f64::consts::{FRAC_PI_2, PI};
 
@@ -308,13 +308,35 @@ impl AuthalicLatitude {
     }
 }
 
-pub(super) fn adjlon(longitude: f64) -> f64 {
+pub(crate) fn adjlon(longitude: f64) -> f64 {
     if longitude.abs() < PI + 1e-12 {
         return longitude;
     }
     let mut longitude = longitude + PI;
     longitude -= 2.0 * PI * (longitude / (2.0 * PI)).floor();
     longitude - PI
+}
+
+const PJ_EPS_LAT: f64 = 1e-12;
+
+pub(crate) fn prepare_angular_input(lambda: f64, phi: f64) -> Result<LambdaPhi, Error> {
+    // fwd.cpp's fwd_prepare runs these checks before every step that takes angular input
+    if phi.is_nan() || phi.abs() - FRAC_PI_2 > PJ_EPS_LAT {
+        return Err(Error::InvalidCoordinate(format!(
+            "latitude {} out of range",
+            phi.to_degrees()
+        )));
+    }
+    if lambda.is_nan() || lambda.abs() > 10.0 {
+        return Err(Error::InvalidCoordinate(format!(
+            "longitude {} out of range",
+            lambda.to_degrees()
+        )));
+    }
+    Ok(LambdaPhi {
+        lambda: adjlon(lambda),
+        phi: phi.clamp(-FRAC_PI_2, FRAC_PI_2),
+    })
 }
 
 const ONE_TOL: f64 = 1.000_000_000_000_01;

@@ -23,6 +23,9 @@ Transforms coordinates between 5935 EPSG codes without linking C PROJ or GDAL.
 - **Helmert 7-parameter datum transforms**: translation, rotation, scale (geocentric)
 - **NTv2 grid shifts**: register a `.gsb` at runtime and transforms use it (OSTN15, NAD27 and others)
 - **Datum transforms**: geodetic to geocentric conversion and back
+- **Datum transformations by EPSG method**: `transformation_from_epsg_method` runs the
+  Helmert, Molodensky-Badekas, longitude rotation and geographic offset methods of current
+  EPSG operations, ported from PROJ. `Transform` does not route through it yet
 - **Ellipsoids**: WGS84, GRS80, Clarke 1866, International 1924, and a sphere of WGS84 radius
 - **EPSG code dispatch**: `Transform::new("EPSG:4326", "EPSG:3857")`, or a proj4 projstring starting with `+` on either side
 - **WKT input**: `Transform::new` takes a `.prj` sidecar's WKT (1 or 2) on either side,
@@ -387,13 +390,47 @@ The other five have no PROJ implementation and return an error: Tunisia Mining G
 | NTv2 grid shift | Bilinear interpolation from binary grid files |
 | Geocentric pipeline | Geodetic → ECEF → Helmert → ECEF → Geodetic |
 
+`Transform` uses the table above. The functions below are not wired into it yet.
+
+### Datum transformations by EPSG method
+
+`transformation_from_epsg_method(method_code, parameters, source_ellipsoid,
+target_ellipsoid)` builds a transformation between two geographic CRSs from an EPSG
+transformation method code and its `(EPSG parameter code, value)` pairs in SI units:
+metres, radians, unity for scale differences, metres, radians and unity per second for
+rates, and seconds for the reference epoch (EPSG's year is 31556925.445 s). `forward` and
+`inverse` take a `GeodeticCoord` (longitude and latitude in radians, ellipsoidal height in
+metres) and a coordinate epoch in decimal years. A time-dependent method raises without
+an epoch, the others ignore it. Between geographic 2D CRSs PROJ keeps the input height
+and uses the computed one only for 3D CRSs, so a caller transforming 2D coordinates keeps
+its own height.
+
+`geocentric_transformation_from_epsg_method(method_code, parameters)` returns the
+`Helmert` behind the Helmert and Molodensky-Badekas methods, with `forward` and `inverse`
+on geocentric coordinates, for operations between geocentric CRSs.
+`GeocentricConversion` converts geodetic to geocentric coordinates and back.
+
+The math is ported from PROJ 9.8's `helmert.cpp`, `cart.cpp`, `affine.cpp` and
+`latlong.cpp`, and the method mapping from `singleoperation.cpp`. It covers geocentric
+translations (1031, 9603, 1035), position vector (1033, 9606, 1037), coordinate frame
+(1032, 9607, 1038), coordinate frame full matrix (1132, 1133, 1140), their time-dependent
+forms (1053 to 1058), Molodensky-Badekas (1061, 1062, 1063, 1034, 1039, 9636), longitude
+rotation (9601) and geographic 2D offsets (9619). These are all the non-grid methods of
+current EPSG operations between geodetic CRSs except the time-specific Helmert methods
+1065 and 1066, which PROJ 9.8.1 cannot run either and which return an error. A longitude
+rotation uses PROJ's value of a named prime meridian when the offset is within 1e-10
+radians of it, as `cs2cs` does. The `datum_transformation` tests compare one operation per
+method against `cct` running the pipeline `projinfo` prints, to 1 mm and 1e-9 degrees in
+both directions.
+
 ## Credits
 
 The Cassini-Soldner, Hotine Oblique Mercator, American Polyconic, Equal Earth and Laborde
 implementations are ported from [proj-rust](https://github.com/roteiro-gis/proj-rust), used under
 its MIT OR Apache-2.0 license.
 
-The projections behind `from_epsg_method` are ported from [PROJ](https://github.com/OSGeo/PROJ),
+The projections behind `from_epsg_method` and the datum transformations behind
+`transformation_from_epsg_method` are ported from [PROJ](https://github.com/OSGeo/PROJ),
 used under its MIT license, kept in [LICENSES/PROJ-MIT.txt](LICENSES/PROJ-MIT.txt).
 
 ## License

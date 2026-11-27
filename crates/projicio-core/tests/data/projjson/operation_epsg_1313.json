@@ -1,0 +1,102 @@
+{
+  "$schema": "https://proj.org/schemas/v0.7/projjson.schema.json",
+  "type": "Transformation",
+  "name": "NAD27 to NAD83 (4)",
+  "source_crs": {
+    "type": "GeographicCRS",
+    "name": "NAD27",
+    "datum": {
+      "type": "GeodeticReferenceFrame",
+      "name": "North American Datum 1927",
+      "ellipsoid": {
+        "name": "Clarke 1866",
+        "semi_major_axis": 6378206.4,
+        "semi_minor_axis": 6356583.8
+      }
+    },
+    "coordinate_system": {
+      "subtype": "ellipsoidal",
+      "axis": [
+        {
+          "name": "Geodetic latitude",
+          "abbreviation": "Lat",
+          "direction": "north",
+          "unit": "degree"
+        },
+        {
+          "name": "Geodetic longitude",
+          "abbreviation": "Lon",
+          "direction": "east",
+          "unit": "degree"
+        }
+      ]
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 4267
+    },
+    "remarks": "Note: this CRS includes longitudes which are POSITIVE EAST. Replaced by NAD27(76) (code 4608) in Ontario, CGQ77 (code 4609) in Quebec, Mexican Datum of 1993 (code 4483) in Mexico, NAD83 (code 4269) in Canada (excl. Ontario & Quebec) & USA."
+  },
+  "target_crs": {
+    "type": "GeographicCRS",
+    "name": "NAD83",
+    "datum": {
+      "type": "GeodeticReferenceFrame",
+      "name": "North American Datum 1983",
+      "ellipsoid": {
+        "name": "GRS 1980",
+        "semi_major_axis": 6378137,
+        "inverse_flattening": 298.257222101
+      }
+    },
+    "coordinate_system": {
+      "subtype": "ellipsoidal",
+      "axis": [
+        {
+          "name": "Geodetic latitude",
+          "abbreviation": "Lat",
+          "direction": "north",
+          "unit": "degree"
+        },
+        {
+          "name": "Geodetic longitude",
+          "abbreviation": "Lon",
+          "direction": "east",
+          "unit": "degree"
+        }
+      ]
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 4269
+    },
+    "remarks": "Longitude is POSITIVE EAST. The adjustment included connections to Greenland and Mexico but the system was not adopted there. For applications with an accuracy of better than 1m replaced by NAD83(HARN) in the US and PRVI and by NAD83(CSRS) in Canada."
+  },
+  "method": {
+    "name": "HORIZONTAL_SHIFT_GTIFF"
+  },
+  "parameters": [
+    {
+      "name": "Latitude and longitude difference file",
+      "value": "ca_nrc_ntv2_0.tif",
+      "id": {
+        "authority": "EPSG",
+        "code": 8656
+      }
+    }
+  ],
+  "accuracy": "1.5",
+  "scope": "Transformation of coordinates at 1m to 2m level of accuracy.",
+  "area": "Canada - onshore - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon; offshore east coast west of 44°W and north of 40°N.",
+  "bbox": {
+    "south_latitude": 40,
+    "west_longitude": -141.01,
+    "north_latitude": 83.17,
+    "east_longitude": -44
+  },
+  "id": {
+    "authority": "DERIVED_FROM(EPSG)",
+    "code": 1313
+  },
+  "remarks": "Uses NTv2 data files. Replaces NTv1 (transformation code 1312) except in Quebec. Input expects longitudes to be positive west; EPSG GeogCRS NAD27 (code 4267) and (code 4269) have longitudes positive east. May be used as tfm to WGS 84 - see code 1693."
+}

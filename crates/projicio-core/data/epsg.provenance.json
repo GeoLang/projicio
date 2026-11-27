@@ -6,7 +6,7 @@
   },
   "registry_format": {
     "magic": "EPSGMETA",
-    "version": 1
+    "version": 2
   },
   "source_database": {
     "kind": "PROJ proj.db",
@@ -17,14 +17,14 @@
   },
   "output": {
     "file_name": "epsg.bin",
-    "byte_len": 1038742,
-    "sha256": "sha256:38811da9802a6fec4f6914b78bca0a8adb4368b0e71705067f97ff2d1ef506a1"
+    "byte_len": 1047879,
+    "sha256": "sha256:c5a4d63d81f0a395b449f707f2bfb0d5d015fdc8512f3cf6e194783f9275e40b"
   },
   "counts": {
     "crs": 7724,
     "extents": 3191,
     "datum_aliases": 1879,
-    "strings": 6042,
+    "strings": 6210,
     "units_of_measure": 38,
     "ellipsoids": 44,
     "prime_meridians": 14,
@@ -32,7 +32,7 @@
     "coordinate_systems": 79,
     "crs_definitions": 6426,
     "conversions": 2420,
-    "coordinate_operations": 1985,
+    "coordinate_operations": 2069,
     "grid_alternatives": 172,
     "supersessions": 187
   }

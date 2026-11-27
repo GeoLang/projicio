@@ -1,0 +1,547 @@
+{
+  "$schema": "https://proj.org/schemas/v0.7/projjson.schema.json",
+  "type": "ConcatenatedOperation",
+  "name": "Amersfoort to ED50 (1)",
+  "source_crs": {
+    "type": "GeographicCRS",
+    "name": "Amersfoort",
+    "datum": {
+      "type": "GeodeticReferenceFrame",
+      "name": "Amersfoort",
+      "ellipsoid": {
+        "name": "Bessel 1841",
+        "semi_major_axis": 6377397.155,
+        "inverse_flattening": 299.1528128
+      }
+    },
+    "coordinate_system": {
+      "subtype": "ellipsoidal",
+      "axis": [
+        {
+          "name": "Geodetic latitude",
+          "abbreviation": "Lat",
+          "direction": "north",
+          "unit": "degree"
+        },
+        {
+          "name": "Geodetic longitude",
+          "abbreviation": "Lon",
+          "direction": "east",
+          "unit": "degree"
+        }
+      ]
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 4289
+    },
+    "remarks": "Use of geographic2D CRS Amersfoort (code 4289) for spatial referencing is discouraged. Use projected CRS Amersfoort / RD New (code 28992)."
+  },
+  "target_crs": {
+    "type": "GeographicCRS",
+    "name": "ED50",
+    "datum": {
+      "type": "GeodeticReferenceFrame",
+      "name": "European Datum 1950",
+      "ellipsoid": {
+        "name": "International 1924",
+        "semi_major_axis": 6378388,
+        "inverse_flattening": 297
+      }
+    },
+    "coordinate_system": {
+      "subtype": "ellipsoidal",
+      "axis": [
+        {
+          "name": "Geodetic latitude",
+          "abbreviation": "Lat",
+          "direction": "north",
+          "unit": "degree"
+        },
+        {
+          "name": "Geodetic longitude",
+          "abbreviation": "Lon",
+          "direction": "east",
+          "unit": "degree"
+        }
+      ]
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 4230
+    }
+  },
+  "steps": [
+    {
+      "type": "Transformation",
+      "name": "Amersfoort to WGS 84 (2)",
+      "source_crs": {
+        "type": "GeographicCRS",
+        "name": "Amersfoort",
+        "datum": {
+          "type": "GeodeticReferenceFrame",
+          "name": "Amersfoort",
+          "ellipsoid": {
+            "name": "Bessel 1841",
+            "semi_major_axis": 6377397.155,
+            "inverse_flattening": 299.1528128
+          }
+        },
+        "coordinate_system": {
+          "subtype": "ellipsoidal",
+          "axis": [
+            {
+              "name": "Geodetic latitude",
+              "abbreviation": "Lat",
+              "direction": "north",
+              "unit": "degree"
+            },
+            {
+              "name": "Geodetic longitude",
+              "abbreviation": "Lon",
+              "direction": "east",
+              "unit": "degree"
+            }
+          ]
+        },
+        "id": {
+          "authority": "EPSG",
+          "code": 4289
+        },
+        "remarks": "Use of geographic2D CRS Amersfoort (code 4289) for spatial referencing is discouraged. Use projected CRS Amersfoort / RD New (code 28992)."
+      },
+      "target_crs": {
+        "type": "GeographicCRS",
+        "name": "WGS 84",
+        "datum_ensemble": {
+          "name": "World Geodetic System 1984 ensemble",
+          "members": [
+            {
+              "name": "World Geodetic System 1984 (Transit)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1166
+              }
+            },
+            {
+              "name": "World Geodetic System 1984 (G730)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1152
+              }
+            },
+            {
+              "name": "World Geodetic System 1984 (G873)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1153
+              }
+            },
+            {
+              "name": "World Geodetic System 1984 (G1150)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1154
+              }
+            },
+            {
+              "name": "World Geodetic System 1984 (G1674)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1155
+              }
+            },
+            {
+              "name": "World Geodetic System 1984 (G1762)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1156
+              }
+            },
+            {
+              "name": "World Geodetic System 1984 (G2139)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1309
+              }
+            },
+            {
+              "name": "World Geodetic System 1984 (G2296)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1383
+              }
+            }
+          ],
+          "ellipsoid": {
+            "name": "WGS 84",
+            "semi_major_axis": 6378137,
+            "inverse_flattening": 298.257223563
+          },
+          "accuracy": "2.0",
+          "id": {
+            "authority": "EPSG",
+            "code": 6326
+          }
+        },
+        "coordinate_system": {
+          "subtype": "ellipsoidal",
+          "axis": [
+            {
+              "name": "Geodetic latitude",
+              "abbreviation": "Lat",
+              "direction": "north",
+              "unit": "degree"
+            },
+            {
+              "name": "Geodetic longitude",
+              "abbreviation": "Lon",
+              "direction": "east",
+              "unit": "degree"
+            }
+          ]
+        },
+        "id": {
+          "authority": "EPSG",
+          "code": 4326
+        }
+      },
+      "method": {
+        "name": "Coordinate Frame rotation (geog2D domain)",
+        "id": {
+          "authority": "EPSG",
+          "code": 9607
+        }
+      },
+      "parameters": [
+        {
+          "name": "X-axis translation",
+          "value": 565.04,
+          "unit": "metre",
+          "id": {
+            "authority": "EPSG",
+            "code": 8605
+          }
+        },
+        {
+          "name": "Y-axis translation",
+          "value": 49.91,
+          "unit": "metre",
+          "id": {
+            "authority": "EPSG",
+            "code": 8606
+          }
+        },
+        {
+          "name": "Z-axis translation",
+          "value": 465.84,
+          "unit": "metre",
+          "id": {
+            "authority": "EPSG",
+            "code": 8607
+          }
+        },
+        {
+          "name": "X-axis rotation",
+          "value": 1.9848,
+          "unit": {
+            "type": "AngularUnit",
+            "name": "microradian",
+            "conversion_factor": 1e-06
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8608
+          }
+        },
+        {
+          "name": "Y-axis rotation",
+          "value": -1.7439,
+          "unit": {
+            "type": "AngularUnit",
+            "name": "microradian",
+            "conversion_factor": 1e-06
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8609
+          }
+        },
+        {
+          "name": "Z-axis rotation",
+          "value": 9.0587,
+          "unit": {
+            "type": "AngularUnit",
+            "name": "microradian",
+            "conversion_factor": 1e-06
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8610
+          }
+        },
+        {
+          "name": "Scale difference",
+          "value": 4.0772,
+          "unit": {
+            "type": "ScaleUnit",
+            "name": "parts per million",
+            "conversion_factor": 1e-06
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8611
+          }
+        }
+      ],
+      "accuracy": "1.0",
+      "id": {
+        "authority": "EPSG",
+        "code": 1672
+      },
+      "remarks": "Parameter values from Amersfoort to ETRS89 (1) (code 1751) assuming that ETRS89 is equivalent to WGS 84 within the accuracy of the transformation. Replaces Amersfoort to WGS 84 (1) (code 1112). Replaced by Amersfoort to WGS 84 (3) (code 15934)."
+    },
+    {
+      "type": "Transformation",
+      "name": "Inverse of ED50 to WGS 84 (18)",
+      "source_crs": {
+        "type": "GeographicCRS",
+        "name": "WGS 84",
+        "datum_ensemble": {
+          "name": "World Geodetic System 1984 ensemble",
+          "members": [
+            {
+              "name": "World Geodetic System 1984 (Transit)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1166
+              }
+            },
+            {
+              "name": "World Geodetic System 1984 (G730)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1152
+              }
+            },
+            {
+              "name": "World Geodetic System 1984 (G873)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1153
+              }
+            },
+            {
+              "name": "World Geodetic System 1984 (G1150)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1154
+              }
+            },
+            {
+              "name": "World Geodetic System 1984 (G1674)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1155
+              }
+            },
+            {
+              "name": "World Geodetic System 1984 (G1762)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1156
+              }
+            },
+            {
+              "name": "World Geodetic System 1984 (G2139)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1309
+              }
+            },
+            {
+              "name": "World Geodetic System 1984 (G2296)",
+              "id": {
+                "authority": "EPSG",
+                "code": 1383
+              }
+            }
+          ],
+          "ellipsoid": {
+            "name": "WGS 84",
+            "semi_major_axis": 6378137,
+            "inverse_flattening": 298.257223563
+          },
+          "accuracy": "2.0",
+          "id": {
+            "authority": "EPSG",
+            "code": 6326
+          }
+        },
+        "coordinate_system": {
+          "subtype": "ellipsoidal",
+          "axis": [
+            {
+              "name": "Geodetic latitude",
+              "abbreviation": "Lat",
+              "direction": "north",
+              "unit": "degree"
+            },
+            {
+              "name": "Geodetic longitude",
+              "abbreviation": "Lon",
+              "direction": "east",
+              "unit": "degree"
+            }
+          ]
+        },
+        "id": {
+          "authority": "EPSG",
+          "code": 4326
+        }
+      },
+      "target_crs": {
+        "type": "GeographicCRS",
+        "name": "ED50",
+        "datum": {
+          "type": "GeodeticReferenceFrame",
+          "name": "European Datum 1950",
+          "ellipsoid": {
+            "name": "International 1924",
+            "semi_major_axis": 6378388,
+            "inverse_flattening": 297
+          }
+        },
+        "coordinate_system": {
+          "subtype": "ellipsoidal",
+          "axis": [
+            {
+              "name": "Geodetic latitude",
+              "abbreviation": "Lat",
+              "direction": "north",
+              "unit": "degree"
+            },
+            {
+              "name": "Geodetic longitude",
+              "abbreviation": "Lon",
+              "direction": "east",
+              "unit": "degree"
+            }
+          ]
+        },
+        "id": {
+          "authority": "EPSG",
+          "code": 4230
+        }
+      },
+      "method": {
+        "name": "Inverse of Position Vector transformation (geog2D domain)",
+        "id": {
+          "authority": "INVERSE(EPSG)",
+          "code": 9606
+        }
+      },
+      "parameters": [
+        {
+          "name": "X-axis translation",
+          "value": -89.5,
+          "unit": "metre",
+          "id": {
+            "authority": "EPSG",
+            "code": 8605
+          }
+        },
+        {
+          "name": "Y-axis translation",
+          "value": -93.8,
+          "unit": "metre",
+          "id": {
+            "authority": "EPSG",
+            "code": 8606
+          }
+        },
+        {
+          "name": "Z-axis translation",
+          "value": -123.1,
+          "unit": "metre",
+          "id": {
+            "authority": "EPSG",
+            "code": 8607
+          }
+        },
+        {
+          "name": "X-axis rotation",
+          "value": 0,
+          "unit": {
+            "type": "AngularUnit",
+            "name": "arc-second",
+            "conversion_factor": 4.84813681109536e-06
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8608
+          }
+        },
+        {
+          "name": "Y-axis rotation",
+          "value": 0,
+          "unit": {
+            "type": "AngularUnit",
+            "name": "arc-second",
+            "conversion_factor": 4.84813681109536e-06
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8609
+          }
+        },
+        {
+          "name": "Z-axis rotation",
+          "value": -0.156,
+          "unit": {
+            "type": "AngularUnit",
+            "name": "arc-second",
+            "conversion_factor": 4.84813681109536e-06
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8610
+          }
+        },
+        {
+          "name": "Scale difference",
+          "value": 1.2,
+          "unit": {
+            "type": "ScaleUnit",
+            "name": "parts per million",
+            "conversion_factor": 1e-06
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8611
+          }
+        }
+      ],
+      "accuracy": "1.0",
+      "id": {
+        "authority": "INVERSE(EPSG)",
+        "code": 1311
+      },
+      "remarks": "Recommended CT for UKCS and IrishCS petroleum purposes, known as \"Common Offshore\". Based on ED50 to WGS 72 (precise ephemeris) 6-nations agreement of 1981 with which precise to broadcast and broadcast to WGS 84 transformations have been concatenated."
+    }
+  ],
+  "accuracy": "1.5",
+  "scope": "Oil and gas exploration and production.",
+  "area": "Netherlands - onshore, including Waddenzee, Dutch Wadden Islands and 12-mile offshore coastal zone.",
+  "bbox": {
+    "south_latitude": 50.75,
+    "west_longitude": 3.2,
+    "north_latitude": 53.7,
+    "east_longitude": 7.22
+  },
+  "id": {
+    "authority": "EPSG",
+    "code": 4837
+  },
+  "remarks": "Adopted by NAM in 2006, replacing polynomial tfms 1046, 6304, 1050 and 6306."
+}

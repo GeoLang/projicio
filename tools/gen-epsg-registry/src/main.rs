@@ -16,9 +16,9 @@ use projicio_epsg_format::records::{
     Axis, ConversionRecord, CoordinateSystemKind, CoordinateSystemRecord, CrsDefinitionKind,
     CrsDefinitionRecord, DatumEnsemble, DatumRecord, EllipsoidRecord, EllipsoidShape,
     GeodeticCrsType, GridAlternativeRecord, GridFileReference, HelmertParameters, Measure,
-    MeasuredVector, OperationKind, OperationMethod, OperationRecord, OperationStep, ParameterValue,
-    PrimeMeridianRecord, StringIndex, SupersessionRecord, TransformationParameters, UnitKind,
-    UnitRecord,
+    MeasuredVector, OperationCode, OperationKind, OperationMethod, OperationRecord, OperationStep,
+    ParameterValue, PrimeMeridianRecord, StepDirection, StepReference, StringIndex,
+    SupersessionRecord, TransformationParameters, UnitKind, UnitRecord,
 };
 use projicio_epsg_format::{
     CRS_KIND_GEOGRAPHIC, CRS_KIND_OTHER, CRS_KIND_PROJECTED, FLAG_DEPRECATED, HEADER_SIZE, MAGIC,
@@ -680,13 +680,14 @@ struct EpsgTables {
     crs_definitions: BTreeMap<u32, CrsDefinitionRecord>,
     current_crs_codes: BTreeSet<u32>,
     conversions: BTreeMap<u32, ConversionRecord<'static>>,
-    current_operations: BTreeMap<u32, OperationRecord<'static>>,
+    current_operations: BTreeMap<OperationCode<'static>, OperationRecord<'static>>,
     grid_alternatives: BTreeMap<&'static str, GridAlternativeRecord<'static>>,
     supersessions: Vec<SupersessionRecord>,
 }
 
 fn load_epsg_tables(connection: &Connection, extents: &BTreeMap<u32, ExtentRecord>) -> EpsgTables {
-    let usages = |table: &str| load_usages(connection, table, extents);
+    let usages = |table: &str| load_usages(connection, table, EPSG, extents);
+    let proj_usages = |table: &str| load_usages(connection, table, PROJ, extents);
 
     let mut crs_definitions = BTreeMap::new();
     let mut current_crs_codes = BTreeSet::new();
@@ -702,11 +703,15 @@ fn load_epsg_tables(connection: &Connection, extents: &BTreeMap<u32, ExtentRecor
     }
 
     let mut current_operations = BTreeMap::new();
+    // proj.db's own grid and other transformations between epsg crs are all
+    // vertical or use a PROJ string method, which the registry does not hold
     let operations = [
-        load_helmert_transformations(connection, &usages("helmert_transformation")),
+        load_helmert_transformations(connection, EPSG, &usages("helmert_transformation")),
+        load_helmert_transformations(connection, PROJ, &proj_usages("helmert_transformation")),
         load_grid_transformations(connection, &usages("grid_transformation")),
         load_other_transformations(connection, &usages("other_transformation")),
-        load_concatenated_operations(connection, &usages("concatenated_operation")),
+        load_concatenated_operations(connection, EPSG, &usages("concatenated_operation")),
+        load_concatenated_operations(connection, PROJ, &proj_usages("concatenated_operation")),
     ];
     for operation in operations.into_iter().flatten() {
         insert_unique(
@@ -732,33 +737,39 @@ fn load_epsg_tables(connection: &Connection, extents: &BTreeMap<u32, ExtentRecor
     }
 }
 
+const EPSG: &str = "EPSG";
+const PROJ: &str = "PROJ";
+
+// keyed by the object code as proj.db's text, since proj's own codes are not numbers
 fn load_usages(
     connection: &Connection,
     table: &str,
+    authority: &str,
     extents: &BTreeMap<u32, ExtentRecord>,
-) -> BTreeMap<u32, Vec<u32>> {
+) -> BTreeMap<String, Vec<u32>> {
     // proj orders domains by scope score, then by usage code, which proj.db
     // leaves null, so ties keep row order
     let sql = format!(
-        "SELECT usage.object_code, usage.extent_code
+        "SELECT CAST(usage.object_code AS TEXT), usage.extent_code
          FROM usage
          JOIN scope
            ON scope.auth_name = usage.scope_auth_name
           AND scope.code = usage.scope_code
          WHERE usage.object_table_name = {}
-           AND usage.object_auth_name = 'EPSG'
+           AND usage.object_auth_name = {}
            AND usage.extent_auth_name = 'EPSG'
          ORDER BY usage.object_code,
                   CASE WHEN scope.scope LIKE '%large scale%' THEN 0 ELSE 1 END,
                   usage.rowid",
-        quote_string(table)
+        quote_string(table),
+        quote_string(authority)
     );
-    let mut usages = BTreeMap::<u32, Vec<u32>>::new();
+    let mut usages = BTreeMap::<String, Vec<u32>>::new();
     for_each_row(connection, &sql, |row| {
         let extent_code = column_code(row, 1);
         if extents.contains_key(&extent_code) {
             usages
-                .entry(column_code(row, 0))
+                .entry(column_text(row, 0).to_string())
                 .or_default()
                 .push(extent_code);
         }
@@ -766,8 +777,8 @@ fn load_usages(
     usages
 }
 
-fn extent_codes_of(usages: &BTreeMap<u32, Vec<u32>>, code: u32) -> Vec<u32> {
-    usages.get(&code).cloned().unwrap_or_default()
+fn extent_codes_of(usages: &BTreeMap<String, Vec<u32>>, code: &str) -> Vec<u32> {
+    usages.get(code).cloned().unwrap_or_default()
 }
 
 const UNIT_KINDS_BY_NAME: [(&str, UnitKind); 4] = [
@@ -877,7 +888,7 @@ fn load_datums(connection: &Connection) -> BTreeMap<u32, DatumRecord<'static>> {
     for_each_row(
         connection,
         "SELECT code, name, ellipsoid_auth_name, ellipsoid_code, prime_meridian_auth_name,
-                prime_meridian_code, frame_reference_epoch, ensemble_accuracy
+                prime_meridian_code, frame_reference_epoch, ensemble_accuracy, anchor_epoch
          FROM geodetic_datum
          WHERE auth_name = 'EPSG'",
         |row| {
@@ -898,6 +909,7 @@ fn load_datums(connection: &Connection) -> BTreeMap<u32, DatumRecord<'static>> {
                 ellipsoid_code: required_epsg_reference(row, 2),
                 prime_meridian_code: required_epsg_reference(row, 4),
                 frame_reference_epoch: column_optional_number(row, 6),
+                anchor_epoch: column_optional_number(row, 8),
                 ensemble,
             };
             insert_unique(&mut datums, code, datum, "datum");
@@ -977,7 +989,7 @@ const GEODETIC_CRS_TYPES_BY_NAME: [(&str, GeodeticCrsType); 3] = [
     ("geocentric", GeodeticCrsType::Geocentric),
 ];
 
-fn load_geodetic_crs(connection: &Connection, usages: &BTreeMap<u32, Vec<u32>>) -> Vec<CrsRow> {
+fn load_geodetic_crs(connection: &Connection, usages: &BTreeMap<String, Vec<u32>>) -> Vec<CrsRow> {
     let mut rows = Vec::new();
     for_each_row(
         connection,
@@ -998,7 +1010,7 @@ fn load_geodetic_crs(connection: &Connection, usages: &BTreeMap<u32, Vec<u32>>) 
                     datum_code: required_epsg_reference(row, 4),
                 },
                 coordinate_system_code: required_epsg_reference(row, 2),
-                extent_codes: extent_codes_of(usages, code),
+                extent_codes: extent_codes_of(usages, &code.to_string()),
             };
             rows.push(CrsRow {
                 definition,
@@ -1009,7 +1021,7 @@ fn load_geodetic_crs(connection: &Connection, usages: &BTreeMap<u32, Vec<u32>>) 
     rows
 }
 
-fn load_projected_crs(connection: &Connection, usages: &BTreeMap<u32, Vec<u32>>) -> Vec<CrsRow> {
+fn load_projected_crs(connection: &Connection, usages: &BTreeMap<String, Vec<u32>>) -> Vec<CrsRow> {
     let mut rows = Vec::new();
     for_each_row(
         connection,
@@ -1027,7 +1039,7 @@ fn load_projected_crs(connection: &Connection, usages: &BTreeMap<u32, Vec<u32>>)
                     conversion_code: required_epsg_reference(row, 5),
                 },
                 coordinate_system_code: required_epsg_reference(row, 1),
-                extent_codes: extent_codes_of(usages, code),
+                extent_codes: extent_codes_of(usages, &code.to_string()),
             };
             rows.push(CrsRow {
                 definition,
@@ -1103,19 +1115,41 @@ fn load_conversions(connection: &Connection) -> BTreeMap<u32, ConversionRecord<'
 const OPERATION_COLUMNS: &str = "code, name, source_crs_auth_name, source_crs_code, \
      target_crs_auth_name, target_crs_code, accuracy";
 
+// the registry keeps proj.db's own operations only between epsg crs
+fn current_operations_of(authority: &str) -> String {
+    let only_between_epsg_crs = if authority == EPSG {
+        ""
+    } else {
+        " AND source_crs_auth_name = 'EPSG' AND target_crs_auth_name = 'EPSG'"
+    };
+    format!(
+        "auth_name = {} AND deprecated = 0{only_between_epsg_crs}",
+        quote_string(authority)
+    )
+}
+
+fn operation_code(row: &Row<'_>, authority: &str) -> OperationCode<'static> {
+    match authority {
+        EPSG => OperationCode::Epsg(column_code(row, 0)),
+        PROJ => OperationCode::Proj(column_text(row, 0)),
+        other => fatal(format!("the registry holds no {other} operations")),
+    }
+}
+
 fn read_operation(
     row: &Row<'_>,
-    usages: &BTreeMap<u32, Vec<u32>>,
+    authority: &str,
+    usages: &BTreeMap<String, Vec<u32>>,
     kind: OperationKind<'static>,
 ) -> OperationRecord<'static> {
-    let code = column_code(row, 0);
+    let code = operation_code(row, authority);
     OperationRecord {
         code,
         name: column_text(row, 1),
         source_crs_code: required_epsg_reference(row, 2),
         target_crs_code: required_epsg_reference(row, 4),
         accuracy: column_optional_number(row, 6),
-        extent_codes: extent_codes_of(usages, code),
+        extent_codes: extent_codes_of(usages, &code.code_text()),
         kind,
     }
 }
@@ -1155,7 +1189,8 @@ fn read_optional_measure(row: &Row<'_>, first_index: usize) -> Option<Measure> {
 
 fn load_helmert_transformations(
     connection: &Connection,
-    usages: &BTreeMap<u32, Vec<u32>>,
+    authority: &str,
+    usages: &BTreeMap<String, Vec<u32>>,
 ) -> Vec<OperationRecord<'static>> {
     let sql = format!(
         "SELECT {OPERATION_COLUMNS}, method_auth_name, method_code, method_name,
@@ -1170,14 +1205,15 @@ fn load_helmert_transformations(
                 epoch, epoch_uom_auth_name, epoch_uom_code,
                 px, py, pz, pivot_uom_auth_name, pivot_uom_code
          FROM helmert_transformation
-         WHERE auth_name = 'EPSG' AND deprecated = 0"
+         WHERE {}",
+        current_operations_of(authority)
     );
     let mut operations = Vec::new();
     for_each_row(connection, &sql, |row| {
         let translation = read_optional_vector(row, 10).unwrap_or_else(|| {
             fatal(format!(
-                "EPSG Helmert transformation {} has no translation",
-                column_code(row, 0)
+                "Helmert transformation {} has no translation",
+                operation_code(row, authority)
             ))
         });
         let parameters = HelmertParameters {
@@ -1193,6 +1229,7 @@ fn load_helmert_transformations(
         };
         operations.push(read_operation(
             row,
+            authority,
             usages,
             OperationKind::HelmertTransformation(Box::new(parameters)),
         ));
@@ -1210,7 +1247,7 @@ fn read_optional_grid(row: &Row<'_>, first_index: usize) -> Option<GridFileRefer
 
 fn load_grid_transformations(
     connection: &Connection,
-    usages: &BTreeMap<u32, Vec<u32>>,
+    usages: &BTreeMap<String, Vec<u32>>,
 ) -> Vec<OperationRecord<'static>> {
     let sql = format!(
         "SELECT {OPERATION_COLUMNS}, method_auth_name, method_code, method_name,
@@ -1234,6 +1271,7 @@ fn load_grid_transformations(
         };
         operations.push(read_operation(
             row,
+            EPSG,
             usages,
             OperationKind::GridTransformation(parameters),
         ));
@@ -1243,7 +1281,7 @@ fn load_grid_transformations(
 
 fn load_other_transformations(
     connection: &Connection,
-    usages: &BTreeMap<u32, Vec<u32>>,
+    usages: &BTreeMap<String, Vec<u32>>,
 ) -> Vec<OperationRecord<'static>> {
     let sql = format!(
         "SELECT {OPERATION_COLUMNS}, method_auth_name, method_code, method_name,
@@ -1263,6 +1301,7 @@ fn load_other_transformations(
         };
         operations.push(read_operation(
             row,
+            EPSG,
             usages,
             OperationKind::OtherTransformation(parameters),
         ));
@@ -1272,54 +1311,74 @@ fn load_other_transformations(
 
 fn load_concatenated_operations(
     connection: &Connection,
-    usages: &BTreeMap<u32, Vec<u32>>,
+    authority: &str,
+    usages: &BTreeMap<String, Vec<u32>>,
 ) -> Vec<OperationRecord<'static>> {
-    let mut steps_by_operation = BTreeMap::<u32, Vec<OperationStep>>::new();
-    for_each_row(
-        connection,
-        "SELECT step.operation_code, step.step_auth_name, step.step_code,
-                step.step_direction, step_object.type
+    let mut steps_by_operation = BTreeMap::<String, Vec<OperationStep<'static>>>::new();
+    let steps_sql = format!(
+        "SELECT CAST(step.operation_code AS TEXT), step.step_auth_name,
+                CAST(step.step_code AS TEXT), step.step_direction, step_object.type
          FROM concatenated_operation_step step
          LEFT JOIN coordinate_operation_with_conversion_view step_object
            ON step_object.auth_name = step.step_auth_name
           AND step_object.code = step.step_code
-         WHERE step.operation_auth_name = 'EPSG'
+         WHERE step.operation_auth_name = {}
          ORDER BY step.operation_code, step.step_number",
-        |row| {
-            let operation_code = column_code(row, 0);
-            let step_code = required_epsg_reference(row, 1);
-            if column_optional_text(row, 3).is_some() {
-                fatal(format!(
-                    "EPSG concatenated operation {operation_code} gives step {step_code} a direction, which the registry does not store"
-                ));
-            }
-            let step = match column_optional_text(row, 4) {
-                Some("conversion") => OperationStep::Conversion(step_code),
-                Some(_) => OperationStep::Operation(step_code),
-                None => fatal(format!(
-                    "EPSG concatenated operation {operation_code} names step {step_code}, which proj.db does not have"
-                )),
-            };
-            steps_by_operation
-                .entry(operation_code)
-                .or_default()
-                .push(step);
-        },
+        quote_string(authority)
     );
+    for_each_row(connection, &steps_sql, |row| {
+        let operation_code = column_text(row, 0);
+        let step_authority = column_text(row, 1);
+        let step_code = column_text(row, 2);
+        let direction = match column_optional_text(row, 3) {
+            None => None,
+            Some("forward") => Some(StepDirection::Forward),
+            Some("reverse") => Some(StepDirection::Reverse),
+            Some(other) => fatal(format!(
+                "{authority} concatenated operation {operation_code} gives step {step_authority}:{step_code} the direction {other:?}"
+            )),
+        };
+        let reference = match (column_optional_text(row, 4), step_authority) {
+            (Some("conversion"), EPSG) => {
+                StepReference::Conversion(parse_code(step_code, "conversion"))
+            }
+            (Some(_), EPSG) => {
+                StepReference::Operation(OperationCode::Epsg(parse_code(step_code, "operation")))
+            }
+            (Some(step_type), PROJ) if step_type != "conversion" => {
+                StepReference::Operation(OperationCode::Proj(step_code))
+            }
+            (Some(_), _) => fatal(format!(
+                "{authority} concatenated operation {operation_code} names step {step_authority}:{step_code}, which the registry cannot hold"
+            )),
+            (None, _) => fatal(format!(
+                "{authority} concatenated operation {operation_code} names step {step_authority}:{step_code}, which proj.db does not have"
+            )),
+        };
+        steps_by_operation
+            .entry(operation_code.to_string())
+            .or_default()
+            .push(OperationStep {
+                reference,
+                direction,
+            });
+    });
 
     let sql = format!(
         "SELECT {OPERATION_COLUMNS}
          FROM concatenated_operation
-         WHERE auth_name = 'EPSG' AND deprecated = 0"
+         WHERE {}",
+        current_operations_of(authority)
     );
     let mut operations = Vec::new();
     for_each_row(connection, &sql, |row| {
-        let code = column_code(row, 0);
+        let code = operation_code(row, authority);
         let steps = steps_by_operation
-            .remove(&code)
-            .unwrap_or_else(|| fatal(format!("EPSG concatenated operation {code} has no steps")));
+            .remove(&code.code_text())
+            .unwrap_or_else(|| fatal(format!("concatenated operation {code} has no steps")));
         operations.push(read_operation(
             row,
+            authority,
             usages,
             OperationKind::ConcatenatedOperation(steps),
         ));
@@ -1410,14 +1469,29 @@ fn select_reachable(tables: &EpsgTables) -> Selection<'_> {
             Some(CrsDefinitionKind::Geodetic { .. })
         )
     };
-    let mut pending: Vec<u32> = tables
-        .current_operations
-        .values()
-        .filter(|operation| {
-            is_geodetic(operation.source_crs_code) && is_geodetic(operation.target_crs_code)
-        })
-        .map(|operation| operation.code)
-        .collect();
+    let steps_resolve = |operation: &OperationRecord<'static>| match &operation.kind {
+        OperationKind::ConcatenatedOperation(steps) => {
+            steps.iter().all(|step| match step.reference {
+                StepReference::Operation(code) => tables.current_operations.contains_key(&code),
+                StepReference::Conversion(code) => tables.conversions.contains_key(&code),
+            })
+        }
+        _ => true,
+    };
+    let mut pending = Vec::new();
+    for operation in tables.current_operations.values() {
+        if !is_geodetic(operation.source_crs_code) || !is_geodetic(operation.target_crs_code) {
+            continue;
+        }
+        if matches!(operation.code, OperationCode::Proj(_)) && !steps_resolve(operation) {
+            eprintln!(
+                "leaving out {}: a step is a proj.db operation the registry does not hold",
+                operation.code
+            );
+            continue;
+        }
+        pending.push(operation.code);
+    }
     let mut operation_codes = BTreeSet::new();
     let mut conversion_codes = BTreeSet::new();
     while let Some(code) = pending.pop() {
@@ -1431,9 +1505,9 @@ fn select_reachable(tables: &EpsgTables) -> Selection<'_> {
         );
         if let OperationKind::ConcatenatedOperation(steps) = &operation.kind {
             for step in steps {
-                match *step {
-                    OperationStep::Operation(step_code) => pending.push(step_code),
-                    OperationStep::Conversion(step_code) => {
+                match step.reference {
+                    StepReference::Operation(step_code) => pending.push(step_code),
+                    StepReference::Conversion(step_code) => {
                         conversion_codes.insert(step_code);
                     }
                 }
@@ -1549,7 +1623,9 @@ fn select_reachable(tables: &EpsgTables) -> Selection<'_> {
     let supersessions = tables
         .supersessions
         .iter()
-        .filter(|supersession| operation_codes.contains(&supersession.superseded_code))
+        .filter(|supersession| {
+            operation_codes.contains(&OperationCode::Epsg(supersession.superseded_code))
+        })
         .collect();
 
     Selection {
@@ -1621,9 +1697,9 @@ fn lookup<'t, K: Ord + Copy + std::fmt::Display, T>(
     })
 }
 
-fn lookup_all<'t, T>(
-    records: &'t BTreeMap<u32, T>,
-    codes: &BTreeSet<u32>,
+fn lookup_all<'t, K: Ord + Copy + std::fmt::Display, T>(
+    records: &'t BTreeMap<K, T>,
+    codes: &BTreeSet<K>,
     kind: &str,
 ) -> Vec<&'t T> {
     codes

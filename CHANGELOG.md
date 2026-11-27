@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- 2026-11-27: `iso19111::authority_factory` builds CRSs, datums, ensembles, ellipsoids,
+  prime meridians, coordinate systems, units, conversions and coordinate operations from
+  the registry, following PROJ's `AuthorityFactory`. `iso19111::CoordinateOperation` covers
+  transformations, point motion operations and concatenated operations, with PROJJSON read
+  and write, and `Transformation` carries its accuracy, areas of use and interpolation CRS.
+  The registry adds proj.db's 84 PROJ-authority operations between EPSG geodetic CRSs and
+  datum anchor epochs, and looks operations up by `OperationCode`. Registry format 2, the
+  blob grows from 1,038,742 to 1,047,879 bytes.
+
 ### Changed
 
 - 2026-11-27: the 23 Lambert Azimuthal Equal Area and Equidistant Cylindrical EPSG

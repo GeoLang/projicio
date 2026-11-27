@@ -1,0 +1,276 @@
+{
+  "$schema": "https://proj.org/schemas/v0.7/projjson.schema.json",
+  "type": "Transformation",
+  "name": "ETRS89 to WGS 84 (1)",
+  "source_crs": {
+    "type": "GeographicCRS",
+    "name": "ETRS89",
+    "datum_ensemble": {
+      "name": "European Terrestrial Reference System 1989 ensemble",
+      "members": [
+        {
+          "name": "European Terrestrial Reference Frame 1989",
+          "id": {
+            "authority": "EPSG",
+            "code": 1178
+          }
+        },
+        {
+          "name": "European Terrestrial Reference Frame 1990",
+          "id": {
+            "authority": "EPSG",
+            "code": 1179
+          }
+        },
+        {
+          "name": "European Terrestrial Reference Frame 1991",
+          "id": {
+            "authority": "EPSG",
+            "code": 1180
+          }
+        },
+        {
+          "name": "European Terrestrial Reference Frame 1992",
+          "id": {
+            "authority": "EPSG",
+            "code": 1181
+          }
+        },
+        {
+          "name": "European Terrestrial Reference Frame 1993",
+          "id": {
+            "authority": "EPSG",
+            "code": 1182
+          }
+        },
+        {
+          "name": "European Terrestrial Reference Frame 1994",
+          "id": {
+            "authority": "EPSG",
+            "code": 1183
+          }
+        },
+        {
+          "name": "European Terrestrial Reference Frame 1996",
+          "id": {
+            "authority": "EPSG",
+            "code": 1184
+          }
+        },
+        {
+          "name": "European Terrestrial Reference Frame 1997",
+          "id": {
+            "authority": "EPSG",
+            "code": 1185
+          }
+        },
+        {
+          "name": "European Terrestrial Reference Frame 2000",
+          "id": {
+            "authority": "EPSG",
+            "code": 1186
+          }
+        },
+        {
+          "name": "European Terrestrial Reference Frame 2005",
+          "id": {
+            "authority": "EPSG",
+            "code": 1204
+          }
+        },
+        {
+          "name": "European Terrestrial Reference Frame 2014",
+          "id": {
+            "authority": "EPSG",
+            "code": 1206
+          }
+        },
+        {
+          "name": "European Terrestrial Reference Frame 2020",
+          "id": {
+            "authority": "EPSG",
+            "code": 1382
+          }
+        }
+      ],
+      "ellipsoid": {
+        "name": "GRS 1980",
+        "semi_major_axis": 6378137,
+        "inverse_flattening": 298.257222101
+      },
+      "accuracy": "0.1",
+      "id": {
+        "authority": "EPSG",
+        "code": 6258
+      }
+    },
+    "coordinate_system": {
+      "subtype": "ellipsoidal",
+      "axis": [
+        {
+          "name": "Geodetic latitude",
+          "abbreviation": "Lat",
+          "direction": "north",
+          "unit": "degree"
+        },
+        {
+          "name": "Geodetic longitude",
+          "abbreviation": "Lon",
+          "direction": "east",
+          "unit": "degree"
+        }
+      ]
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 4258
+    },
+    "remarks": "Has been realized through ETRF89, ETRF90, ETRF91, ETRF92, ETRF93, ETRF94, ETRF96, ETRF97, ETRF2000, ETRF2005 and ETRF2014. This 'ensemble' covers any or all of these realizations without distinction."
+  },
+  "target_crs": {
+    "type": "GeographicCRS",
+    "name": "WGS 84",
+    "datum_ensemble": {
+      "name": "World Geodetic System 1984 ensemble",
+      "members": [
+        {
+          "name": "World Geodetic System 1984 (Transit)",
+          "id": {
+            "authority": "EPSG",
+            "code": 1166
+          }
+        },
+        {
+          "name": "World Geodetic System 1984 (G730)",
+          "id": {
+            "authority": "EPSG",
+            "code": 1152
+          }
+        },
+        {
+          "name": "World Geodetic System 1984 (G873)",
+          "id": {
+            "authority": "EPSG",
+            "code": 1153
+          }
+        },
+        {
+          "name": "World Geodetic System 1984 (G1150)",
+          "id": {
+            "authority": "EPSG",
+            "code": 1154
+          }
+        },
+        {
+          "name": "World Geodetic System 1984 (G1674)",
+          "id": {
+            "authority": "EPSG",
+            "code": 1155
+          }
+        },
+        {
+          "name": "World Geodetic System 1984 (G1762)",
+          "id": {
+            "authority": "EPSG",
+            "code": 1156
+          }
+        },
+        {
+          "name": "World Geodetic System 1984 (G2139)",
+          "id": {
+            "authority": "EPSG",
+            "code": 1309
+          }
+        },
+        {
+          "name": "World Geodetic System 1984 (G2296)",
+          "id": {
+            "authority": "EPSG",
+            "code": 1383
+          }
+        }
+      ],
+      "ellipsoid": {
+        "name": "WGS 84",
+        "semi_major_axis": 6378137,
+        "inverse_flattening": 298.257223563
+      },
+      "accuracy": "2.0",
+      "id": {
+        "authority": "EPSG",
+        "code": 6326
+      }
+    },
+    "coordinate_system": {
+      "subtype": "ellipsoidal",
+      "axis": [
+        {
+          "name": "Geodetic latitude",
+          "abbreviation": "Lat",
+          "direction": "north",
+          "unit": "degree"
+        },
+        {
+          "name": "Geodetic longitude",
+          "abbreviation": "Lon",
+          "direction": "east",
+          "unit": "degree"
+        }
+      ]
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 4326
+    }
+  },
+  "method": {
+    "name": "Geocentric translations (geog2D domain)",
+    "id": {
+      "authority": "EPSG",
+      "code": 9603
+    }
+  },
+  "parameters": [
+    {
+      "name": "X-axis translation",
+      "value": 0,
+      "unit": "metre",
+      "id": {
+        "authority": "EPSG",
+        "code": 8605
+      }
+    },
+    {
+      "name": "Y-axis translation",
+      "value": 0,
+      "unit": "metre",
+      "id": {
+        "authority": "EPSG",
+        "code": 8606
+      }
+    },
+    {
+      "name": "Z-axis translation",
+      "value": 0,
+      "unit": "metre",
+      "id": {
+        "authority": "EPSG",
+        "code": 8607
+      }
+    }
+  ],
+  "accuracy": "1.0",
+  "scope": "(null/copy) Approximation for medium and low accuracy applications assuming equality between plate-fixed static and earth-fixed dynamic CRSs, ignoring static/dynamic CRS differences.",
+  "area": "Europe - onshore and offshore: Albania; Andorra; Austria; Belgium; Bosnia and Herzegovina; Bulgaria; Croatia; Czechia; Denmark; Estonia; Faroe Islands; Finland; France; Germany; Gibraltar; Greece; Hungary; Ireland; Italy; Kosovo; Latvia; Liechtenstein; Lithuania; Luxembourg; Malta; Moldova; Monaco; Montenegro; Netherlands; North Macedonia; Norway including Svalbard and Jan Mayen; Poland; Portugal - mainland; Romania; San Marino; Serbia; Slovakia; Slovenia; Spain - mainland and Balearic islands; Sweden; Switzerland; United Kingdom (UK) including Channel Islands and Isle of Man; Vatican City State.",
+  "bbox": {
+    "south_latitude": 33.26,
+    "west_longitude": -16.1,
+    "north_latitude": 84.73,
+    "east_longitude": 38.01
+  },
+  "id": {
+    "authority": "EPSG",
+    "code": 1149
+  },
+  "remarks": "ETRS89 and WGS 84 are realizations of ITRS coincident to within 1 metre. This transformation has an accuracy equal to the coincidence figure."
+}

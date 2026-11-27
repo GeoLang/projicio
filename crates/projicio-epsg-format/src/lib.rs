@@ -10,7 +10,8 @@
 //! links, areas of use and datum aliases, and the definitions behind them
 //! (units, ellipsoids, prime meridians, datums, coordinate systems, CRS
 //! definitions, conversions) plus every current EPSG coordinate operation
-//! between geodetic CRSs. It never carries transform behavior.
+//! between geodetic CRSs and PROJ's own operations between EPSG geodetic CRSs.
+//! It never carries transform behavior.
 //!
 //! # Container
 //!
@@ -103,8 +104,9 @@
 //!   optional value.
 //! - `codes` is a varint count then that many varint codes.
 //!
-//! Records are sorted by code, grid alternatives by original name and
-//! supersessions by superseded code then replacement code.
+//! Records are sorted by code, operations by EPSG code and then by PROJ code
+//! string, grid alternatives by original name and supersessions by superseded
+//! code then replacement code.
 //!
 //! ```text
 //! unit of measure  code, name string, kind u8 (1 length 2 angle 3 scale
@@ -114,9 +116,10 @@
 //!                  optional decimal (exactly one present)
 //! prime meridian   code, name string, longitude decimal, unit code
 //! datum            code, name string, ellipsoid code, prime meridian code,
-//!                  frame reference epoch optional decimal, ensemble accuracy
-//!                  optional decimal, ensemble member codes (empty unless
-//!                  the accuracy is present)
+//!                  frame reference epoch optional decimal, anchor epoch
+//!                  optional decimal, ensemble accuracy optional decimal,
+//!                  ensemble member codes (empty unless the accuracy is
+//!                  present)
 //! coordinate system  code, kind u8 (1 Cartesian 2 ellipsoidal), axis count
 //!                  varint, then per axis in axis order: name string,
 //!                  abbreviation string, orientation string, unit code
@@ -124,8 +127,9 @@
 //!                  3 geocentric: datum code; 4 projected: base CRS code,
 //!                  conversion code), coordinate system code, extent codes
 //! conversion       code, name string, method, parameters
-//! operation        code, name string, source CRS code, target CRS code,
-//!                  accuracy optional decimal, extent codes, kind u8, body
+//! operation        operation code, name string, source CRS code, target
+//!                  CRS code, accuracy optional decimal, extent codes, kind
+//!                  u8, body
 //! grid alternative original name string, PROJ grid name optional string,
 //!                  old PROJ grid name optional string, format string,
 //!                  PROJ method string, URL optional string, flags u8
@@ -136,6 +140,8 @@
 //! method      code, name string
 //! parameters  count varint, then per parameter: code, name string,
 //!             value decimal, unit code
+//! operation code  varint `EPSG code << 1`, or `string << 1 | 1` for a
+//!             PROJ-authority code
 //! ```
 //!
 //! Operation bodies by kind:
@@ -151,7 +157,11 @@
 //!                 parameter code, parameter name string, file name string,
 //!                 then interpolation CRS code (NO_CODE when absent)
 //! 4 concatenated  step count varint, then per step a varint
-//!                 `code << 1 | 1 if the step is a conversion`
+//!                 `payload << 4 | direction << 2 | kind`: kind 0 an EPSG
+//!                 operation with the payload its code, 1 an EPSG conversion
+//!                 with the payload its code, 2 a PROJ-authority operation
+//!                 with the payload its code string; direction 0 none (EPSG
+//!                 steps), 1 forward, 2 reverse
 //! ```
 //!
 //! Extent codes list every area of use in the order PROJ reads them: scopes
@@ -164,7 +174,7 @@ pub mod records;
 /// File magic, the first eight bytes of the container.
 pub const MAGIC: [u8; 8] = *b"EPSGMETA";
 /// Container format version. Bump on any layout or semantic change.
-pub const VERSION: u16 = 1;
+pub const VERSION: u16 = 2;
 /// Magic (8) + format version (2) + section count (2).
 pub const HEADER_SIZE: usize = 12;
 /// Tag (4) + record count (4) + byte offset (4) + byte length (4).

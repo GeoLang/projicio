@@ -2,6 +2,9 @@
 
 use super::streaming_writer::StreamingWriter;
 use crate::iso19111::common::{Measure, ObjectDomain, UnitOfMeasure, UnitType, leading_integer};
+use crate::iso19111::coordinate_operation::{
+    ConcatenatedOperation, CoordinateOperation, PointMotionOperation,
+};
 use crate::iso19111::coordinate_system::{CoordinateSystemAxis, Meridian};
 use crate::iso19111::crs::{BoundCrs, Criterion, Crs, GeodeticCrs, GeographicCrs, ProjectedCrs};
 use crate::iso19111::datum::{
@@ -680,4 +683,112 @@ fn write_crs(f: &mut Formatter, crs: &Crs) {
         Crs::Projected(crs) => write_projected_crs(f, crs),
         Crs::Bound(crs) => write_bound_crs(f, crs),
     }
+}
+
+impl CoordinateOperation {
+    pub fn to_projjson(&self) -> String {
+        let mut formatter = Formatter::new();
+        write_coordinate_operation(&mut formatter, self);
+        formatter.writer.into_string()
+    }
+}
+
+fn write_coordinate_operation(f: &mut Formatter, operation: &CoordinateOperation) {
+    match operation {
+        CoordinateOperation::Conversion { conversion, .. } => write_conversion(f, conversion),
+        CoordinateOperation::Transformation(transformation) => {
+            write_transformation(f, transformation)
+        }
+        CoordinateOperation::PointMotion(operation) => write_point_motion_operation(f, operation),
+        CoordinateOperation::Concatenated(operation) => write_concatenated_operation(f, operation),
+    }
+}
+
+fn write_accuracy(f: &mut Formatter, accuracies: &[String]) {
+    if let Some(accuracy) = accuracies.first() {
+        f.key_string("accuracy", accuracy);
+    }
+}
+
+fn write_operation_crs(f: &mut Formatter, key: &str, crs: &Crs) {
+    f.writer.add_key(key);
+    f.allow_id_in_immediate_child = true;
+    write_crs(f, crs);
+}
+
+fn write_operation_method(f: &mut Formatter, method: &OperationMethod) {
+    f.writer.add_key("method");
+    f.omit_type_in_immediate_child = true;
+    f.allow_id_in_immediate_child = true;
+    write_method(f, method);
+}
+
+fn write_transformation(f: &mut Formatter, transformation: &Transformation) {
+    f.object(
+        Some("Transformation"),
+        !transformation.identifiers.is_empty(),
+        |f| {
+            f.name_or_unnamed(&transformation.name);
+            write_operation_crs(f, "source_crs", &transformation.source_crs);
+            write_operation_crs(f, "target_crs", &transformation.target_crs);
+            if let Some(interpolation_crs) = &transformation.interpolation_crs {
+                write_operation_crs(f, "interpolation_crs", interpolation_crs);
+            }
+            write_operation_method(f, &transformation.method);
+            write_parameter_values(f, &transformation.parameter_values);
+            write_accuracy(f, &transformation.accuracies);
+            write_usage(
+                f,
+                &transformation.domains,
+                &transformation.identifiers,
+                &transformation.remarks,
+            );
+        },
+    );
+}
+
+fn write_point_motion_operation(f: &mut Formatter, operation: &PointMotionOperation) {
+    f.object(
+        Some("PointMotionOperation"),
+        !operation.identifiers.is_empty(),
+        |f| {
+            f.name_or_unnamed(&operation.name);
+            write_operation_crs(f, "source_crs", &operation.crs);
+            write_operation_method(f, &operation.method);
+            write_parameter_values(f, &operation.parameter_values);
+            write_accuracy(f, &operation.accuracies);
+            write_usage(
+                f,
+                &operation.domains,
+                &operation.identifiers,
+                &operation.remarks,
+            );
+        },
+    );
+}
+
+fn write_concatenated_operation(f: &mut Formatter, operation: &ConcatenatedOperation) {
+    f.object(
+        Some("ConcatenatedOperation"),
+        !operation.identifiers.is_empty(),
+        |f| {
+            f.name_or_unnamed(&operation.name);
+            write_operation_crs(f, "source_crs", &operation.source_crs);
+            write_operation_crs(f, "target_crs", &operation.target_crs);
+            f.writer.add_key("steps");
+            f.array(|f| {
+                for step in &operation.steps {
+                    f.allow_id_in_immediate_child = true;
+                    write_coordinate_operation(f, step);
+                }
+            });
+            write_accuracy(f, &operation.accuracies);
+            write_usage(
+                f,
+                &operation.domains,
+                &operation.identifiers,
+                &operation.remarks,
+            );
+        },
+    );
 }

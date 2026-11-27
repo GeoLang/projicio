@@ -1,7 +1,7 @@
 use projicio_core::registry::{
     self, CoordinateSystemKind, CrsDefinitionKind, EllipsoidShape, GeodeticCrsType,
-    GridFileReference, Measure, MeasuredVector, OperationKind, OperationStep, ParameterValue,
-    TransformationParameters, UnitKind,
+    GridFileReference, Measure, MeasuredVector, OperationCode, OperationKind, ParameterValue,
+    StepDirection, StepReference, TransformationParameters, UnitKind,
 };
 use serde_json::{Value, json};
 use std::io::{self, BufRead, Write};
@@ -79,12 +79,34 @@ fn operation_kind(kind: &OperationKind<'_>) -> Value {
             "kind": "concatenated",
             "steps": steps
                 .iter()
-                .map(|step| match step {
-                    OperationStep::Operation(code) => json!(["operation", code]),
-                    OperationStep::Conversion(code) => json!(["conversion", code]),
+                .map(|step| {
+                    let mut fields = match step.reference {
+                        StepReference::Operation(OperationCode::Epsg(code)) => {
+                            vec![json!("operation"), json!(code)]
+                        }
+                        StepReference::Operation(code) => {
+                            vec![json!("operation"), json!(code.to_string())]
+                        }
+                        StepReference::Conversion(code) => vec![json!("conversion"), json!(code)],
+                    };
+                    // proj.db gives epsg steps no direction
+                    match step.direction {
+                        None => {}
+                        Some(StepDirection::Forward) => fields.push(json!("forward")),
+                        Some(StepDirection::Reverse) => fields.push(json!("reverse")),
+                    }
+                    Value::Array(fields)
                 })
                 .collect::<Vec<_>>(),
         }),
+    }
+}
+
+// an operation key is an EPSG code, or PROJ:<code> for proj.db's own operations
+fn operation_code(key: &str) -> OperationCode<'_> {
+    match key.strip_prefix("PROJ:") {
+        Some(code) => OperationCode::Proj(code),
+        None => OperationCode::Epsg(key.parse().expect("numeric code")),
     }
 }
 
@@ -183,16 +205,18 @@ fn record(kind: &str, key: &str) -> Value {
                 "parameters": parameters(&conversion.parameters),
             })
         }),
-        "operation" => registry::coordinate_operation(code()).map_or(Value::Null, |operation| {
-            json!({
-                "name": operation.name,
-                "source_crs_code": operation.source_crs_code,
-                "target_crs_code": operation.target_crs_code,
-                "accuracy": operation.accuracy,
-                "extent_codes": operation.extent_codes,
-                "kind": operation_kind(&operation.kind),
+        "operation" => {
+            registry::coordinate_operation(operation_code(key)).map_or(Value::Null, |operation| {
+                json!({
+                    "name": operation.name,
+                    "source_crs_code": operation.source_crs_code,
+                    "target_crs_code": operation.target_crs_code,
+                    "accuracy": operation.accuracy,
+                    "extent_codes": operation.extent_codes,
+                    "kind": operation_kind(&operation.kind),
+                })
             })
-        }),
+        }
         "supersession" => registry::supersessions(code())
             .iter()
             .map(|supersession| {

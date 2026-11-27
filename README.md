@@ -31,8 +31,13 @@ Transforms coordinates between 5935 EPSG codes without linking C PROJ or GDAL.
 - **WKT input**: `Transform::new` takes a `.prj` sidecar's WKT (1 or 2) on either side,
   converted at parse time by [`proj4wkt`](https://crates.io/crates/proj4wkt)
 - **PROJJSON and the ISO 19111 model**: `iso19111::Crs::from_projjson` and `to_projjson` read
-  and write PROJJSON as PROJ 9.8.1 writes it. `Crs::is_equivalent_to` compares datum, axes and
-  conversion, so NAD83 and WGS 84 differ. `Transform` does not take PROJJSON yet
+  and write PROJJSON as PROJ 9.8.1 writes it, and so do `iso19111::CoordinateOperation`'s for
+  transformations, point motion operations and concatenated operations. `Crs::is_equivalent_to`
+  compares datum, axes and conversion, so NAD83 and WGS 84 differ. `Transform` does not take
+  PROJJSON yet
+- **Authority factory**: `iso19111::authority_factory` builds CRSs, datums and ensembles,
+  ellipsoids, prime meridians, coordinate systems, units, conversions and coordinate operations
+  from the registry by code, as PROJ's `AuthorityFactory` does
 - **5935 EPSG codes**: national grids, State Plane, UTM on any datum, across both engines
 - **Reusable transforms**: build a `Transform` once and convert many coordinates through it.
   `convert_batch` is that loop, not a vectorised path. `Transform::path` reports which engine it resolved to
@@ -143,16 +148,43 @@ between geodetic CRSs: units of measure, ellipsoids, prime meridians, datums and
 ensembles, coordinate systems with their axes, CRS definitions, conversions with their
 method and parameters, Helmert, grid, other and concatenated operations with their
 accuracy and areas of use, which operation supersedes which, and PROJ's CDN file for
-each grid an operation names. `registry::operations_between(source, target)` lists the
-operations between two CRSs in either direction. These are plain records, nothing in the
-transform path reads them yet.
+each grid an operation names. It also holds proj.db's own operations between EPSG
+geodetic CRSs (22 Helmert, 62 concatenated), coded `PROJ:<code>`. An operation is looked
+up by `OperationCode::Epsg(code)` or `OperationCode::Proj(code)`.
+`registry::operations_between(source, target)` lists the operations between two CRSs in
+either direction. These are plain records, nothing in the transform path reads them yet.
 
 ```rust
-use projicio_core::registry;
+use projicio_core::registry::{self, OperationCode};
 
-let nad83_to_wgs84 = registry::coordinate_operation(1188).unwrap();
+let nad83_to_wgs84 = registry::coordinate_operation(OperationCode::Epsg(1188)).unwrap();
 assert_eq!(nad83_to_wgs84.accuracy, Some(4.0));
 ```
+
+`iso19111::authority_factory` turns these records into the ISO 19111 model, following
+PROJ's `factory.cpp`: names, identifiers, units, accuracies, areas of use, ensemble
+members, dynamic frame epochs, PROJ's grid file names in place of EPSG's, and the
+direction of each step of a concatenated operation. Unknown codes raise
+`Error::NoSuchAuthorityCode` naming the kind and code. The registry carries no scope text,
+remarks or extent descriptions, so an object's area of use is named by the EPSG extent
+name, where projinfo writes the extent description.
+
+```rust
+use projicio_core::iso19111::authority_factory::{
+    create_coordinate_operation, create_coordinate_reference_system,
+};
+use projicio_core::registry::OperationCode;
+
+let lambert_93 = create_coordinate_reference_system(2154).unwrap();
+let nad27_to_nad83 = create_coordinate_operation(OperationCode::Epsg(1313)).unwrap();
+println!("{}\n{}", lambert_93.to_projjson(), nad27_to_nad83.to_projjson());
+```
+
+`examples/authority_factory_report.rs` reads lines of `crs <EPSG code>`,
+`operation <EPSG code>` or `operation PROJ:<code>` on stdin and prints the factory's
+PROJJSON for each, or `error <message>`, each record ending in a nul byte. Its output
+equals `projinfo [-k operation] <authority>:<code> -o PROJJSON -q` once the `scope`, `area`
+and `remarks` members are dropped from both.
 
 The data is a binary blob generated from PROJ 9.8.1's proj.db (EPSG v12.029) by
 `tools/gen-epsg-registry`, a package outside the workspace so that building or testing

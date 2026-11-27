@@ -195,6 +195,17 @@ impl GeodeticReferenceFrame {
     }
 }
 
+pub(crate) fn ensemble_name_to_non_ensemble_name(name: &str) -> Option<&'static str> {
+    match name {
+        "World Geodetic System 1984 ensemble" => Some("World Geodetic System 1984"),
+        "European Terrestrial Reference System 1989 ensemble" => {
+            Some("European Terrestrial Reference System 1989")
+        }
+        "Greenland Reference 1996 ensemble" => Some("Greenland 1996"),
+        _ => None,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct DatumEnsemble {
     pub name: String,
@@ -207,14 +218,7 @@ impl DatumEnsemble {
     pub fn as_datum(&self) -> GeodeticReferenceFrame {
         // TODO: PROJ builds the datum from the registry when the ensemble has an identifier
         let first_member = &self.members[0];
-        let name = match self.name.as_str() {
-            "World Geodetic System 1984 ensemble" => "World Geodetic System 1984",
-            "European Terrestrial Reference System 1989 ensemble" => {
-                "European Terrestrial Reference System 1989"
-            }
-            "Greenland Reference 1996 ensemble" => "Greenland 1996",
-            other => other,
-        };
+        let name = ensemble_name_to_non_ensemble_name(&self.name).unwrap_or(self.name.as_str());
         GeodeticReferenceFrame {
             name: name.to_string(),
             identifiers: self.identifiers.iter().take(1).cloned().collect(),

@@ -1,0 +1,101 @@
+{
+  "$schema": "https://proj.org/schemas/v0.7/projjson.schema.json",
+  "type": "Transformation",
+  "name": "Inverse of Inverse of RGF93 v2 to NTF (2)",
+  "source_crs": {
+    "type": "GeographicCRS",
+    "name": "RGF93 v2",
+    "datum": {
+      "type": "GeodeticReferenceFrame",
+      "name": "Reseau Geodesique Francais 1993 v2",
+      "ellipsoid": {
+        "name": "GRS 1980",
+        "semi_major_axis": 6378137,
+        "inverse_flattening": 298.257222101
+      }
+    },
+    "coordinate_system": {
+      "subtype": "ellipsoidal",
+      "axis": [
+        {
+          "name": "Geodetic latitude",
+          "abbreviation": "Lat",
+          "direction": "north",
+          "unit": "degree"
+        },
+        {
+          "name": "Geodetic longitude",
+          "abbreviation": "Lon",
+          "direction": "east",
+          "unit": "degree"
+        }
+      ]
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 9777
+    },
+    "remarks": "Replaces RGF93 v1 (CRS code 4171) from 2010-06-18. Replaced by RGF93 v2b (CRS code 9782) from 2021-01-05. See CRS code 9779 for alternate system with axes reversed used by IGN for GIS purposes."
+  },
+  "target_crs": {
+    "type": "GeographicCRS",
+    "name": "NTF",
+    "datum": {
+      "type": "GeodeticReferenceFrame",
+      "name": "Nouvelle Triangulation Francaise",
+      "ellipsoid": {
+        "name": "Clarke 1880 (IGN)",
+        "semi_major_axis": 6378249.2,
+        "semi_minor_axis": 6356515
+      }
+    },
+    "coordinate_system": {
+      "subtype": "ellipsoidal",
+      "axis": [
+        {
+          "name": "Geodetic latitude",
+          "abbreviation": "Lat",
+          "direction": "north",
+          "unit": "degree"
+        },
+        {
+          "name": "Geodetic longitude",
+          "abbreviation": "Lon",
+          "direction": "east",
+          "unit": "degree"
+        }
+      ]
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 4275
+    }
+  },
+  "method": {
+    "name": "Inverse of HORIZONTAL_SHIFT_GTIFF"
+  },
+  "parameters": [
+    {
+      "name": "Latitude and longitude difference file",
+      "value": "fr_ign_ntf_r93.tif",
+      "id": {
+        "authority": "EPSG",
+        "code": 8656
+      }
+    }
+  ],
+  "accuracy": "1.0",
+  "scope": "Transformation of coordinates at 1m level of accuracy.",
+  "area": "France - onshore - mainland and Corsica.",
+  "bbox": {
+    "south_latitude": 41.31,
+    "west_longitude": -4.87,
+    "north_latitude": 51.14,
+    "east_longitude": 9.63
+  },
+  "id": {
+    "authority": "DERIVED_FROM(EPSG)",
+    "code": 9890
+  },
+  "remarks": "Emulation of transformation NTF to RGF93 v2 (1), code 9888. Note that grid file parameters are of opposite sign. Parameter file is from RGF93 v1 to NTF (code 15958), assuming that RGF93 v1 is equivalent to RGF93 v2 within the accuracy of the CT."
+}

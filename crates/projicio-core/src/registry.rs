@@ -2,9 +2,10 @@
 //!
 //! Reads the blob generated from PROJ's proj.db by `tools/gen-epsg-registry`.
 //! It carries names, kind, deprecation, datum links, areas of use, and datum
-//! aliases, plus the definitions behind EPSG's geodetic and projected CRSs and
-//! every current EPSG coordinate operation between geodetic CRSs, looked up by
-//! code. Nothing here takes part in transforming a coordinate.
+//! aliases, plus the definitions behind EPSG's geodetic and projected CRSs,
+//! every current EPSG coordinate operation between geodetic CRSs and PROJ's
+//! own operations between EPSG geodetic CRSs, looked up by code. Nothing here
+//! takes part in transforming a coordinate.
 //!
 //! The blob is parsed once on first use. The provenance file next to it
 //! records the dataset it came from and the checksum CI reproduces.
@@ -26,8 +27,9 @@ pub use projicio_epsg_format::records::{
     Axis, ConversionRecord, CoordinateSystemKind, CoordinateSystemRecord, CrsDefinitionKind,
     CrsDefinitionRecord, DatumEnsemble, DatumRecord, EllipsoidRecord, EllipsoidShape,
     GeodeticCrsType, GridAlternativeRecord, GridFileReference, HelmertParameters, Measure,
-    MeasuredVector, OperationKind, OperationMethod, OperationRecord, OperationStep, ParameterValue,
-    PrimeMeridianRecord, SupersessionRecord, TransformationParameters, UnitKind, UnitRecord,
+    MeasuredVector, OperationCode, OperationKind, OperationMethod, OperationRecord, OperationStep,
+    ParameterValue, PrimeMeridianRecord, StepDirection, StepReference, SupersessionRecord,
+    TransformationParameters, UnitKind, UnitRecord,
 };
 
 static REGISTRY_BYTES: &[u8] = include_bytes!("../data/epsg.bin");
@@ -110,6 +112,10 @@ pub fn metadata(code: u32) -> Option<CrsMetadata> {
     })
 }
 
+pub fn extent(code: u32) -> Option<&'static Extent> {
+    registry().find_extent(code)
+}
+
 /// Whether a CRS is meant to be used at this coordinate.
 ///
 /// `None` when the code is unknown or EPSG records no area of use for it.
@@ -165,8 +171,12 @@ pub fn conversion(code: u32) -> Option<&'static ConversionRecord<'static>> {
     find_by_code(&registry().conversions, code, |conversion| conversion.code)
 }
 
-pub fn coordinate_operation(code: u32) -> Option<&'static OperationRecord<'static>> {
-    find_by_code(&registry().operations, code, |operation| operation.code)
+pub fn coordinate_operation(code: OperationCode<'_>) -> Option<&'static OperationRecord<'static>> {
+    let operations = &registry().operations;
+    let index = operations
+        .binary_search_by(|operation| operation.code.cmp(&code))
+        .ok()?;
+    Some(&operations[index])
 }
 
 pub fn grid_alternative(original_name: &str) -> Option<&'static GridAlternativeRecord<'static>> {
@@ -175,6 +185,18 @@ pub fn grid_alternative(original_name: &str) -> Option<&'static GridAlternativeR
         .binary_search_by(|alternative| alternative.original_name.cmp(original_name))
         .ok()?;
     Some(&alternatives[index])
+}
+
+pub fn grid_alternative_for_file(
+    file_name: &str,
+) -> Option<&'static GridAlternativeRecord<'static>> {
+    // proj's factory writes proj's file name in place of epsg's
+    grid_alternative(file_name).or_else(|| {
+        registry().grid_alternatives.iter().find(|alternative| {
+            alternative.proj_grid_name == Some(file_name)
+                || alternative.old_proj_grid_name == Some(file_name)
+        })
+    })
 }
 
 pub fn supersessions(superseded_code: u32) -> &'static [SupersessionRecord] {
@@ -397,10 +419,14 @@ fn parse(bytes: &'static [u8]) -> Result<Registry, RegistryError> {
         conversions.iter().map(|conversion| conversion.code),
         SECTION_CONVERSION,
     )?;
-    require_sorted(
-        operations.iter().map(|operation| operation.code),
-        SECTION_COORDINATE_OPERATION,
-    )?;
+    if operations
+        .windows(2)
+        .any(|pair| pair[0].code >= pair[1].code)
+    {
+        return Err(RegistryError::UnsortedSection {
+            tag: SECTION_COORDINATE_OPERATION,
+        });
+    }
     if grid_alternatives
         .windows(2)
         .any(|pair| pair[0].original_name >= pair[1].original_name)
@@ -802,7 +828,10 @@ mod tests {
     }
 
     fn helmert(code: u32) -> &'static HelmertParameters<'static> {
-        match &coordinate_operation(code).unwrap().kind {
+        match &coordinate_operation(OperationCode::Epsg(code))
+            .unwrap()
+            .kind
+        {
             OperationKind::HelmertTransformation(parameters) => parameters.as_ref(),
             other => panic!("EPSG:{code} is not a Helmert transformation: {other:?}"),
         }
@@ -979,7 +1008,7 @@ mod tests {
 
     #[test]
     fn nad83_to_wgs84_1_is_a_zero_translation_good_to_4_m() {
-        let operation = coordinate_operation(1188).unwrap();
+        let operation = coordinate_operation(OperationCode::Epsg(1188)).unwrap();
         assert_eq!(operation.name, "NAD83 to WGS 84 (1)");
         assert_eq!(
             (operation.source_crs_code, operation.target_crs_code),
@@ -1009,7 +1038,7 @@ mod tests {
 
     #[test]
     fn etrs89_to_wgs84_1_is_a_zero_translation_good_to_1_m() {
-        let operation = coordinate_operation(1149).unwrap();
+        let operation = coordinate_operation(OperationCode::Epsg(1149)).unwrap();
         assert_eq!(operation.name, "ETRS89 to WGS 84 (1)");
         assert_eq!(
             (operation.source_crs_code, operation.target_crs_code),
@@ -1024,7 +1053,7 @@ mod tests {
 
     #[test]
     fn itrf2014_to_etrf2014_carries_rates_and_epoch() {
-        let operation = coordinate_operation(8366).unwrap();
+        let operation = coordinate_operation(OperationCode::Epsg(8366)).unwrap();
         assert_eq!(operation.name, "ITRF2014 to ETRF2014 (1)");
         assert_eq!(
             (operation.source_crs_code, operation.target_crs_code),
@@ -1075,14 +1104,23 @@ mod tests {
     #[test]
     fn operations_keep_every_area_of_use_in_proj_order() {
         assert_eq!(
-            coordinate_operation(1240).unwrap().extent_codes,
+            coordinate_operation(OperationCode::Epsg(1240))
+                .unwrap()
+                .extent_codes,
             [1262, 4780]
         );
     }
 
+    fn undirected(reference: StepReference<'static>) -> OperationStep<'static> {
+        OperationStep {
+            reference,
+            direction: None,
+        }
+    }
+
     #[test]
     fn concatenated_operation_lists_its_steps() {
-        let operation = coordinate_operation(10778).unwrap();
+        let operation = coordinate_operation(OperationCode::Epsg(10778)).unwrap();
         assert_eq!(operation.name, "KKJ to EUREF-FIN (3)");
         assert_eq!(
             (operation.source_crs_code, operation.target_crs_code),
@@ -1092,13 +1130,13 @@ mod tests {
         assert_eq!(
             operation.kind,
             OperationKind::ConcatenatedOperation(vec![
-                OperationStep::Conversion(18193),
-                OperationStep::Operation(10703),
-                OperationStep::Conversion(16065),
+                undirected(StepReference::Conversion(18193)),
+                undirected(StepReference::Operation(OperationCode::Epsg(10703))),
+                undirected(StepReference::Conversion(16065)),
             ])
         );
 
-        let tin = coordinate_operation(10703).unwrap();
+        let tin = coordinate_operation(OperationCode::Epsg(10703)).unwrap();
         assert_eq!((tin.source_crs_code, tin.target_crs_code), (2393, 3067));
         assert_eq!(
             conversion(18193).unwrap().name,
@@ -1109,7 +1147,7 @@ mod tests {
 
     #[test]
     fn ntv2_operation_names_its_grid_and_proj_cdn_file() {
-        let operation = coordinate_operation(1313).unwrap();
+        let operation = coordinate_operation(OperationCode::Epsg(1313)).unwrap();
         assert_eq!(operation.name, "NAD27 to NAD83 (4)");
         assert_eq!(operation.accuracy, Some(1.5));
         assert_eq!(
@@ -1153,7 +1191,7 @@ mod tests {
             .chain(1708..=1750)
             .chain([15835, 15837, 15839])
             .collect();
-        let codes_and_directions = |source, target| -> Vec<(u32, bool)> {
+        let codes_and_directions = |source, target| -> Vec<(OperationCode<'static>, bool)> {
             operations_between(source, target)
                 .iter()
                 .map(|directed| (directed.operation.code, directed.inverse))
@@ -1164,21 +1202,19 @@ mod tests {
             codes_and_directions(4269, 4326),
             expected
                 .iter()
-                .map(|code| (*code, false))
+                .map(|code| (OperationCode::Epsg(*code), false))
                 .collect::<Vec<_>>()
         );
         assert_eq!(
             codes_and_directions(4326, 4269),
             expected
                 .iter()
-                .map(|code| (*code, true))
+                .map(|code| (OperationCode::Epsg(*code), true))
                 .collect::<Vec<_>>()
         );
-        assert!(
-            operations_from(4269)
-                .iter()
-                .any(|directed| directed.operation.code == 1313 && directed.inverse)
-        );
+        assert!(operations_from(4269).iter().any(|directed| {
+            directed.operation.code == OperationCode::Epsg(1313) && directed.inverse
+        }));
         assert!(operations_between(4269, 999_999).is_empty());
     }
 
@@ -1193,5 +1229,71 @@ mod tests {
             }]
         );
         assert!(supersessions(1188).is_empty());
+    }
+    #[test]
+    fn proj_authority_concatenated_operation_keeps_step_directions() {
+        let operation = coordinate_operation(OperationCode::Proj("KKJ_TO_EUREF_FIN")).unwrap();
+        assert_eq!(operation.name, "KKJ to EUREF-FIN (using EPSG:10703)");
+        assert_eq!(
+            (operation.source_crs_code, operation.target_crs_code),
+            (4123, 10690)
+        );
+        assert_eq!(operation.accuracy, None);
+        assert_eq!(operation.extent_codes, [3333]);
+        let step = |reference, direction| OperationStep {
+            reference,
+            direction: Some(direction),
+        };
+        assert_eq!(
+            operation.kind,
+            OperationKind::ConcatenatedOperation(vec![
+                step(StepReference::Conversion(18193), StepDirection::Forward),
+                step(
+                    StepReference::Operation(OperationCode::Epsg(10703)),
+                    StepDirection::Forward
+                ),
+                step(StepReference::Conversion(16065), StepDirection::Reverse),
+            ])
+        );
+    }
+
+    #[test]
+    fn proj_authority_helmert_sits_after_every_epsg_operation() {
+        let operation = coordinate_operation(OperationCode::Proj("WGS84_TO_WGS84_G1762")).unwrap();
+        assert_eq!(operation.name, "WGS 84 to WGS 84 (G1762)");
+        assert_eq!(
+            (operation.source_crs_code, operation.target_crs_code),
+            (4326, 9057)
+        );
+        assert_eq!(operation.accuracy, Some(2.0));
+        assert_eq!(operation.extent_codes, [1262]);
+        assert!(
+            operations_between(4326, 9057)
+                .iter()
+                .any(|directed| directed.operation.code == operation.code && !directed.inverse)
+        );
+        let last = registry().operations.last().unwrap();
+        assert!(matches!(last.code, OperationCode::Proj(_)));
+        assert_eq!(
+            coordinate_operation(OperationCode::Proj("S_JTSK_GEOG_TO_S_JTSK05_GEOG")),
+            None
+        );
+    }
+
+    #[test]
+    fn nad83_2011_datum_carries_its_anchor_epoch() {
+        let datum = geodetic_datum(1116).unwrap();
+        assert_eq!(datum.name, "NAD83 (National Spatial Reference System 2011)");
+        assert_eq!(datum.anchor_epoch, Some(2010.0));
+        assert_eq!(geodetic_datum(6269).unwrap().anchor_epoch, None);
+    }
+
+    #[test]
+    fn grid_file_resolves_by_epsg_or_proj_name() {
+        let by_epsg_name = grid_alternative_for_file("NTv2_0.gsb").unwrap();
+        let by_proj_name = grid_alternative_for_file("ca_nrc_ntv2_0.tif").unwrap();
+        assert_eq!(by_epsg_name, by_proj_name);
+        assert_eq!(by_proj_name.original_name, "NTv2_0.gsb");
+        assert_eq!(grid_alternative_for_file("no such grid"), None);
     }
 }

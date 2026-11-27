@@ -1,0 +1,521 @@
+{
+  "$schema": "https://proj.org/schemas/v0.7/projjson.schema.json",
+  "type": "ConcatenatedOperation",
+  "name": "ITRF97 to NZGD2000 (1)",
+  "source_crs": {
+    "type": "GeodeticCRS",
+    "name": "ITRF97",
+    "datum": {
+      "type": "DynamicGeodeticReferenceFrame",
+      "name": "International Terrestrial Reference Frame 1997",
+      "frame_reference_epoch": 1997,
+      "ellipsoid": {
+        "name": "GRS 1980",
+        "semi_major_axis": 6378137,
+        "inverse_flattening": 298.257222101
+      }
+    },
+    "coordinate_system": {
+      "subtype": "Cartesian",
+      "axis": [
+        {
+          "name": "Geocentric X",
+          "abbreviation": "X",
+          "direction": "geocentricX",
+          "unit": "metre"
+        },
+        {
+          "name": "Geocentric Y",
+          "abbreviation": "Y",
+          "direction": "geocentricY",
+          "unit": "metre"
+        },
+        {
+          "name": "Geocentric Z",
+          "abbreviation": "Z",
+          "direction": "geocentricZ",
+          "unit": "metre"
+        }
+      ]
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 4918
+    },
+    "remarks": "Replaces ITRF96 (code 4917). Replaced by ITRF2000 (code 4919)."
+  },
+  "target_crs": {
+    "type": "GeographicCRS",
+    "name": "NZGD2000",
+    "datum": {
+      "type": "GeodeticReferenceFrame",
+      "name": "New Zealand Geodetic Datum 2000",
+      "ellipsoid": {
+        "name": "GRS 1980",
+        "semi_major_axis": 6378137,
+        "inverse_flattening": 298.257222101
+      }
+    },
+    "coordinate_system": {
+      "subtype": "ellipsoidal",
+      "axis": [
+        {
+          "name": "Geodetic latitude",
+          "abbreviation": "Lat",
+          "direction": "north",
+          "unit": "degree"
+        },
+        {
+          "name": "Geodetic longitude",
+          "abbreviation": "Lon",
+          "direction": "east",
+          "unit": "degree"
+        },
+        {
+          "name": "Ellipsoidal height",
+          "abbreviation": "h",
+          "direction": "up",
+          "unit": "metre"
+        }
+      ]
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 4959
+    }
+  },
+  "steps": [
+    {
+      "type": "Transformation",
+      "name": "ITRF97 to ITRF96 (2)",
+      "source_crs": {
+        "type": "GeodeticCRS",
+        "name": "ITRF97",
+        "datum": {
+          "type": "DynamicGeodeticReferenceFrame",
+          "name": "International Terrestrial Reference Frame 1997",
+          "frame_reference_epoch": 1997,
+          "ellipsoid": {
+            "name": "GRS 1980",
+            "semi_major_axis": 6378137,
+            "inverse_flattening": 298.257222101
+          }
+        },
+        "coordinate_system": {
+          "subtype": "Cartesian",
+          "axis": [
+            {
+              "name": "Geocentric X",
+              "abbreviation": "X",
+              "direction": "geocentricX",
+              "unit": "metre"
+            },
+            {
+              "name": "Geocentric Y",
+              "abbreviation": "Y",
+              "direction": "geocentricY",
+              "unit": "metre"
+            },
+            {
+              "name": "Geocentric Z",
+              "abbreviation": "Z",
+              "direction": "geocentricZ",
+              "unit": "metre"
+            }
+          ]
+        },
+        "id": {
+          "authority": "EPSG",
+          "code": 4918
+        },
+        "remarks": "Replaces ITRF96 (code 4917). Replaced by ITRF2000 (code 4919)."
+      },
+      "target_crs": {
+        "type": "GeodeticCRS",
+        "name": "ITRF96",
+        "datum": {
+          "type": "DynamicGeodeticReferenceFrame",
+          "name": "International Terrestrial Reference Frame 1996",
+          "frame_reference_epoch": 1997,
+          "ellipsoid": {
+            "name": "GRS 1980",
+            "semi_major_axis": 6378137,
+            "inverse_flattening": 298.257222101
+          }
+        },
+        "coordinate_system": {
+          "subtype": "Cartesian",
+          "axis": [
+            {
+              "name": "Geocentric X",
+              "abbreviation": "X",
+              "direction": "geocentricX",
+              "unit": "metre"
+            },
+            {
+              "name": "Geocentric Y",
+              "abbreviation": "Y",
+              "direction": "geocentricY",
+              "unit": "metre"
+            },
+            {
+              "name": "Geocentric Z",
+              "abbreviation": "Z",
+              "direction": "geocentricZ",
+              "unit": "metre"
+            }
+          ]
+        },
+        "id": {
+          "authority": "EPSG",
+          "code": 4917
+        },
+        "remarks": "Replaces ITRF94 (code 4916). Replaced by ITRF97 (code 4918)."
+      },
+      "method": {
+        "name": "Time-dependent Position Vector tfm (geocentric)",
+        "id": {
+          "authority": "EPSG",
+          "code": 1053
+        }
+      },
+      "parameters": [
+        {
+          "name": "X-axis translation",
+          "value": 0,
+          "unit": {
+            "type": "LinearUnit",
+            "name": "millimetre",
+            "conversion_factor": 0.001
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8605
+          }
+        },
+        {
+          "name": "Y-axis translation",
+          "value": -0.51,
+          "unit": {
+            "type": "LinearUnit",
+            "name": "millimetre",
+            "conversion_factor": 0.001
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8606
+          }
+        },
+        {
+          "name": "Z-axis translation",
+          "value": 15.53,
+          "unit": {
+            "type": "LinearUnit",
+            "name": "millimetre",
+            "conversion_factor": 0.001
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8607
+          }
+        },
+        {
+          "name": "X-axis rotation",
+          "value": -0.16508,
+          "unit": {
+            "type": "AngularUnit",
+            "name": "milliarc-second",
+            "conversion_factor": 4.84813681109536e-09
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8608
+          }
+        },
+        {
+          "name": "Y-axis rotation",
+          "value": 0.26897,
+          "unit": {
+            "type": "AngularUnit",
+            "name": "milliarc-second",
+            "conversion_factor": 4.84813681109536e-09
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8609
+          }
+        },
+        {
+          "name": "Z-axis rotation",
+          "value": 0.05984,
+          "unit": {
+            "type": "AngularUnit",
+            "name": "milliarc-second",
+            "conversion_factor": 4.84813681109536e-09
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8610
+          }
+        },
+        {
+          "name": "Scale difference",
+          "value": -1.51099,
+          "unit": {
+            "type": "ScaleUnit",
+            "name": "parts per billion",
+            "conversion_factor": 1e-09
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8611
+          }
+        },
+        {
+          "name": "Rate of change of X-axis translation",
+          "value": 0.69,
+          "unit": {
+            "type": "LinearUnit",
+            "name": "millimetres per year",
+            "conversion_factor": 3.16887651727315e-11
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 1040
+          }
+        },
+        {
+          "name": "Rate of change of Y-axis translation",
+          "value": -0.1,
+          "unit": {
+            "type": "LinearUnit",
+            "name": "millimetres per year",
+            "conversion_factor": 3.16887651727315e-11
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 1041
+          }
+        },
+        {
+          "name": "Rate of change of Z-axis translation",
+          "value": 1.86,
+          "unit": {
+            "type": "LinearUnit",
+            "name": "millimetres per year",
+            "conversion_factor": 3.16887651727315e-11
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 1042
+          }
+        },
+        {
+          "name": "Rate of change of X-axis rotation",
+          "value": -0.01347,
+          "unit": {
+            "type": "AngularUnit",
+            "name": "milliarc-seconds per year",
+            "conversion_factor": 1.53631468932076e-16
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 1043
+          }
+        },
+        {
+          "name": "Rate of change of Y-axis rotation",
+          "value": 0.01514,
+          "unit": {
+            "type": "AngularUnit",
+            "name": "milliarc-seconds per year",
+            "conversion_factor": 1.53631468932076e-16
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 1044
+          }
+        },
+        {
+          "name": "Rate of change of Z-axis rotation",
+          "value": -0.00027,
+          "unit": {
+            "type": "AngularUnit",
+            "name": "milliarc-seconds per year",
+            "conversion_factor": 1.53631468932076e-16
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 1045
+          }
+        },
+        {
+          "name": "Rate of change of Scale difference",
+          "value": -0.19201,
+          "unit": {
+            "type": "ScaleUnit",
+            "name": "parts per billion per year",
+            "conversion_factor": 3.16887651727315e-17
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 1046
+          }
+        },
+        {
+          "name": "Parameter reference epoch",
+          "value": 2000,
+          "unit": {
+            "type": "TimeUnit",
+            "name": "year",
+            "conversion_factor": 31556925.445
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 1047
+          }
+        }
+      ],
+      "accuracy": "0.01",
+      "id": {
+        "authority": "EPSG",
+        "code": 9079
+      },
+      "remarks": "Scale difference in ppb and scale difference rate in ppb/yr where 1/billion = 1E-9 or nm/m. Uses IGS determination. Used as first step in ITRF97 to NZGD2000 concatenated operations, followed by application of NZGD2000 deformation model."
+    },
+    {
+      "type": "Conversion",
+      "name": "Conversion from ITRF96 (geocentric) to ITRF96 (geog3D)",
+      "method": {
+        "name": "Geographic/geocentric conversions",
+        "id": {
+          "authority": "EPSG",
+          "code": 9602
+        }
+      }
+    },
+    {
+      "type": "Transformation",
+      "name": "ITRF96 to NZGD2000 (1)",
+      "source_crs": {
+        "type": "GeographicCRS",
+        "name": "ITRF96",
+        "datum": {
+          "type": "DynamicGeodeticReferenceFrame",
+          "name": "International Terrestrial Reference Frame 1996",
+          "frame_reference_epoch": 1997,
+          "ellipsoid": {
+            "name": "GRS 1980",
+            "semi_major_axis": 6378137,
+            "inverse_flattening": 298.257222101
+          }
+        },
+        "coordinate_system": {
+          "subtype": "ellipsoidal",
+          "axis": [
+            {
+              "name": "Geodetic latitude",
+              "abbreviation": "Lat",
+              "direction": "north",
+              "unit": "degree"
+            },
+            {
+              "name": "Geodetic longitude",
+              "abbreviation": "Lon",
+              "direction": "east",
+              "unit": "degree"
+            },
+            {
+              "name": "Ellipsoidal height",
+              "abbreviation": "h",
+              "direction": "up",
+              "unit": "metre"
+            }
+          ]
+        },
+        "id": {
+          "authority": "EPSG",
+          "code": 7907
+        },
+        "remarks": "Replaces ITRF94 (code 7906). Replaced by ITRF97 (code 7908)."
+      },
+      "target_crs": {
+        "type": "GeographicCRS",
+        "name": "NZGD2000",
+        "datum": {
+          "type": "GeodeticReferenceFrame",
+          "name": "New Zealand Geodetic Datum 2000",
+          "ellipsoid": {
+            "name": "GRS 1980",
+            "semi_major_axis": 6378137,
+            "inverse_flattening": 298.257222101
+          }
+        },
+        "coordinate_system": {
+          "subtype": "ellipsoidal",
+          "axis": [
+            {
+              "name": "Geodetic latitude",
+              "abbreviation": "Lat",
+              "direction": "north",
+              "unit": "degree"
+            },
+            {
+              "name": "Geodetic longitude",
+              "abbreviation": "Lon",
+              "direction": "east",
+              "unit": "degree"
+            },
+            {
+              "name": "Ellipsoidal height",
+              "abbreviation": "h",
+              "direction": "up",
+              "unit": "metre"
+            }
+          ]
+        },
+        "id": {
+          "authority": "EPSG",
+          "code": 4959
+        }
+      },
+      "method": {
+        "name": "New Zealand Deformation Model",
+        "id": {
+          "authority": "EPSG",
+          "code": 1079
+        }
+      },
+      "parameters": [
+        {
+          "name": "Point motion velocity grid file",
+          "value": "nz_linz_nzgd2000-20000101.json",
+          "id": {
+            "authority": "EPSG",
+            "code": 1050
+          }
+        }
+      ],
+      "accuracy": "0.02",
+      "id": {
+        "authority": "DERIVED_FROM(EPSG)",
+        "code": 9084
+      },
+      "remarks": "Used as the second step in ITRF to NZGD2000 concatenated operations. Replaced by 2013-08-01 model (CT code 9085)."
+    }
+  ],
+  "accuracy": "0.03",
+  "scope": "Geodesy.",
+  "area": "New Zealand - North Island, South Island, Stewart Island - onshore and nearshore.",
+  "bbox": {
+    "south_latitude": -47.65,
+    "west_longitude": 165.87,
+    "north_latitude": -33.89,
+    "east_longitude": 179.27
+  },
+  "id": {
+    "authority": "EPSG",
+    "code": 9091
+  },
+  "remarks": "Step 1 is in geocentric coordinate domain, step 2 in geographic 3D coordinate domain. See CT 1565 for low accuracy applications."
+}

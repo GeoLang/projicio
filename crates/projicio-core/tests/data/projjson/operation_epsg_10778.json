@@ -1,0 +1,476 @@
+{
+  "$schema": "https://proj.org/schemas/v0.7/projjson.schema.json",
+  "type": "ConcatenatedOperation",
+  "name": "KKJ to EUREF-FIN (3)",
+  "source_crs": {
+    "type": "GeographicCRS",
+    "name": "KKJ",
+    "datum": {
+      "type": "GeodeticReferenceFrame",
+      "name": "Kartastokoordinaattijarjestelma (1966)",
+      "ellipsoid": {
+        "name": "International 1924",
+        "semi_major_axis": 6378388,
+        "inverse_flattening": 297
+      }
+    },
+    "coordinate_system": {
+      "subtype": "ellipsoidal",
+      "axis": [
+        {
+          "name": "Geodetic latitude",
+          "abbreviation": "Lat",
+          "direction": "north",
+          "unit": "degree"
+        },
+        {
+          "name": "Geodetic longitude",
+          "abbreviation": "Lon",
+          "direction": "east",
+          "unit": "degree"
+        }
+      ]
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 4123
+    }
+  },
+  "target_crs": {
+    "type": "GeographicCRS",
+    "name": "EUREF-FIN",
+    "datum": {
+      "type": "GeodeticReferenceFrame",
+      "name": "EUREF-FIN",
+      "anchor_epoch": 1997,
+      "ellipsoid": {
+        "name": "GRS 1980",
+        "semi_major_axis": 6378137,
+        "inverse_flattening": 298.257222101
+      }
+    },
+    "coordinate_system": {
+      "subtype": "ellipsoidal",
+      "axis": [
+        {
+          "name": "Geodetic latitude",
+          "abbreviation": "Lat",
+          "direction": "north",
+          "unit": "degree"
+        },
+        {
+          "name": "Geodetic longitude",
+          "abbreviation": "Lon",
+          "direction": "east",
+          "unit": "degree"
+        }
+      ]
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 10690
+    },
+    "remarks": "EUREF-FIN is the national realization of ETRS89 in Finland."
+  },
+  "steps": [
+    {
+      "type": "Conversion",
+      "name": "Finland Uniform Coordinate System",
+      "method": {
+        "name": "Transverse Mercator",
+        "id": {
+          "authority": "EPSG",
+          "code": 9807
+        }
+      },
+      "parameters": [
+        {
+          "name": "Latitude of natural origin",
+          "value": 0,
+          "unit": "degree",
+          "id": {
+            "authority": "EPSG",
+            "code": 8801
+          }
+        },
+        {
+          "name": "Longitude of natural origin",
+          "value": 27,
+          "unit": "degree",
+          "id": {
+            "authority": "EPSG",
+            "code": 8802
+          }
+        },
+        {
+          "name": "Scale factor at natural origin",
+          "value": 1,
+          "unit": "unity",
+          "id": {
+            "authority": "EPSG",
+            "code": 8805
+          }
+        },
+        {
+          "name": "False easting",
+          "value": 3500000,
+          "unit": "metre",
+          "id": {
+            "authority": "EPSG",
+            "code": 8806
+          }
+        },
+        {
+          "name": "False northing",
+          "value": 0,
+          "unit": "metre",
+          "id": {
+            "authority": "EPSG",
+            "code": 8807
+          }
+        }
+      ],
+      "id": {
+        "authority": "EPSG",
+        "code": 18193
+      }
+    },
+    {
+      "type": "Transformation",
+      "name": "KKJ / Finland Uniform Coordinate System to EUREF-FIN / TM35FIN(E,N) (1)",
+      "source_crs": {
+        "type": "ProjectedCRS",
+        "name": "KKJ / Finland Uniform Coordinate System",
+        "base_crs": {
+          "type": "GeographicCRS",
+          "name": "KKJ",
+          "datum": {
+            "type": "GeodeticReferenceFrame",
+            "name": "Kartastokoordinaattijarjestelma (1966)",
+            "ellipsoid": {
+              "name": "International 1924",
+              "semi_major_axis": 6378388,
+              "inverse_flattening": 297
+            }
+          },
+          "coordinate_system": {
+            "subtype": "ellipsoidal",
+            "axis": [
+              {
+                "name": "Geodetic latitude",
+                "abbreviation": "Lat",
+                "direction": "north",
+                "unit": "degree"
+              },
+              {
+                "name": "Geodetic longitude",
+                "abbreviation": "Lon",
+                "direction": "east",
+                "unit": "degree"
+              }
+            ]
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 4123
+          }
+        },
+        "conversion": {
+          "name": "Finland Uniform Coordinate System",
+          "method": {
+            "name": "Transverse Mercator",
+            "id": {
+              "authority": "EPSG",
+              "code": 9807
+            }
+          },
+          "parameters": [
+            {
+              "name": "Latitude of natural origin",
+              "value": 0,
+              "unit": "degree",
+              "id": {
+                "authority": "EPSG",
+                "code": 8801
+              }
+            },
+            {
+              "name": "Longitude of natural origin",
+              "value": 27,
+              "unit": "degree",
+              "id": {
+                "authority": "EPSG",
+                "code": 8802
+              }
+            },
+            {
+              "name": "Scale factor at natural origin",
+              "value": 1,
+              "unit": "unity",
+              "id": {
+                "authority": "EPSG",
+                "code": 8805
+              }
+            },
+            {
+              "name": "False easting",
+              "value": 3500000,
+              "unit": "metre",
+              "id": {
+                "authority": "EPSG",
+                "code": 8806
+              }
+            },
+            {
+              "name": "False northing",
+              "value": 0,
+              "unit": "metre",
+              "id": {
+                "authority": "EPSG",
+                "code": 8807
+              }
+            }
+          ]
+        },
+        "coordinate_system": {
+          "subtype": "Cartesian",
+          "axis": [
+            {
+              "name": "Northing",
+              "abbreviation": "X",
+              "direction": "north",
+              "unit": "metre"
+            },
+            {
+              "name": "Easting",
+              "abbreviation": "Y",
+              "direction": "east",
+              "unit": "metre"
+            }
+          ]
+        },
+        "id": {
+          "authority": "EPSG",
+          "code": 2393
+        }
+      },
+      "target_crs": {
+        "type": "ProjectedCRS",
+        "name": "EUREF-FIN / TM35FIN(E,N)",
+        "base_crs": {
+          "type": "GeographicCRS",
+          "name": "EUREF-FIN",
+          "datum": {
+            "type": "GeodeticReferenceFrame",
+            "name": "EUREF-FIN",
+            "anchor_epoch": 1997,
+            "ellipsoid": {
+              "name": "GRS 1980",
+              "semi_major_axis": 6378137,
+              "inverse_flattening": 298.257222101
+            }
+          },
+          "coordinate_system": {
+            "subtype": "ellipsoidal",
+            "axis": [
+              {
+                "name": "Geodetic latitude",
+                "abbreviation": "Lat",
+                "direction": "north",
+                "unit": "degree"
+              },
+              {
+                "name": "Geodetic longitude",
+                "abbreviation": "Lon",
+                "direction": "east",
+                "unit": "degree"
+              }
+            ]
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 10690
+          },
+          "remarks": "EUREF-FIN is the national realization of ETRS89 in Finland."
+        },
+        "conversion": {
+          "name": "TM35FIN",
+          "method": {
+            "name": "Transverse Mercator",
+            "id": {
+              "authority": "EPSG",
+              "code": 9807
+            }
+          },
+          "parameters": [
+            {
+              "name": "Latitude of natural origin",
+              "value": 0,
+              "unit": "degree",
+              "id": {
+                "authority": "EPSG",
+                "code": 8801
+              }
+            },
+            {
+              "name": "Longitude of natural origin",
+              "value": 27,
+              "unit": "degree",
+              "id": {
+                "authority": "EPSG",
+                "code": 8802
+              }
+            },
+            {
+              "name": "Scale factor at natural origin",
+              "value": 0.9996,
+              "unit": "unity",
+              "id": {
+                "authority": "EPSG",
+                "code": 8805
+              }
+            },
+            {
+              "name": "False easting",
+              "value": 500000,
+              "unit": "metre",
+              "id": {
+                "authority": "EPSG",
+                "code": 8806
+              }
+            },
+            {
+              "name": "False northing",
+              "value": 0,
+              "unit": "metre",
+              "id": {
+                "authority": "EPSG",
+                "code": 8807
+              }
+            }
+          ]
+        },
+        "coordinate_system": {
+          "subtype": "Cartesian",
+          "axis": [
+            {
+              "name": "Easting",
+              "abbreviation": "E",
+              "direction": "east",
+              "unit": "metre"
+            },
+            {
+              "name": "Northing",
+              "abbreviation": "N",
+              "direction": "north",
+              "unit": "metre"
+            }
+          ]
+        },
+        "id": {
+          "authority": "EPSG",
+          "code": 3067
+        }
+      },
+      "method": {
+        "name": "Cartesian Grid Offsets by TIN Interpolation (JSON)",
+        "id": {
+          "authority": "EPSG",
+          "code": 1138
+        }
+      },
+      "parameters": [
+        {
+          "name": "TIN offset file",
+          "value": "fi_nls_ykj_etrs35fin.json",
+          "id": {
+            "authority": "EPSG",
+            "code": 1064
+          }
+        }
+      ],
+      "accuracy": "0.03",
+      "id": {
+        "authority": "EPSG",
+        "code": 10703
+      },
+      "remarks": "This YKJ to ETRS-TM35FIN TINshift transformation is the recommended method for KKJ to EUREF-FIN coordinate change, to be used in preference to transformation KKJ to EUREF-FIN (2) (code 10098). See concatenated operation 10778."
+    },
+    {
+      "type": "Conversion",
+      "name": "Inverse of TM35FIN",
+      "method": {
+        "name": "Inverse of Transverse Mercator",
+        "id": {
+          "authority": "INVERSE(EPSG)",
+          "code": 9807
+        }
+      },
+      "parameters": [
+        {
+          "name": "Latitude of natural origin",
+          "value": 0,
+          "unit": "degree",
+          "id": {
+            "authority": "EPSG",
+            "code": 8801
+          }
+        },
+        {
+          "name": "Longitude of natural origin",
+          "value": 27,
+          "unit": "degree",
+          "id": {
+            "authority": "EPSG",
+            "code": 8802
+          }
+        },
+        {
+          "name": "Scale factor at natural origin",
+          "value": 0.9996,
+          "unit": "unity",
+          "id": {
+            "authority": "EPSG",
+            "code": 8805
+          }
+        },
+        {
+          "name": "False easting",
+          "value": 500000,
+          "unit": "metre",
+          "id": {
+            "authority": "EPSG",
+            "code": 8806
+          }
+        },
+        {
+          "name": "False northing",
+          "value": 0,
+          "unit": "metre",
+          "id": {
+            "authority": "EPSG",
+            "code": 8807
+          }
+        }
+      ],
+      "id": {
+        "authority": "INVERSE(EPSG)",
+        "code": 16065
+      }
+    }
+  ],
+  "accuracy": "0.03",
+  "scope": "Transformation of coordinates at 0.03m level of accuracy.",
+  "area": "Finland - onshore.",
+  "bbox": {
+    "south_latitude": 59.75,
+    "west_longitude": 19.24,
+    "north_latitude": 70.09,
+    "east_longitude": 31.59
+  },
+  "id": {
+    "authority": "EPSG",
+    "code": 10778
+  },
+  "remarks": "Recommended transformation between KKJ and EUREF-FIN. Use this in preference to transformation KKJ to EUREF-FIN (2) (code 10098)."
+}

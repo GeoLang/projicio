@@ -259,6 +259,7 @@ pub struct DatumRecord<'a> {
     pub prime_meridian_code: u32,
     // set only for dynamic datums
     pub frame_reference_epoch: Option<f64>,
+    pub anchor_epoch: Option<f64>,
     pub ensemble: Option<DatumEnsemble>,
 }
 
@@ -269,6 +270,7 @@ impl<'a> DatumRecord<'a> {
         write_code(out, self.ellipsoid_code);
         write_code(out, self.prime_meridian_code);
         write::optional_decimal(out, self.frame_reference_epoch);
+        write::optional_decimal(out, self.anchor_epoch);
         write::optional_decimal(
             out,
             self.ensemble.as_ref().map(|ensemble| ensemble.accuracy),
@@ -286,6 +288,7 @@ impl<'a> DatumRecord<'a> {
         let ellipsoid_code = reader.code()?;
         let prime_meridian_code = reader.code()?;
         let frame_reference_epoch = reader.optional_decimal()?;
+        let anchor_epoch = reader.optional_decimal()?;
         let ensemble_accuracy = reader.optional_decimal()?;
         let member_codes = read_codes(reader)?;
         let ensemble = match ensemble_accuracy {
@@ -302,6 +305,7 @@ impl<'a> DatumRecord<'a> {
             ellipsoid_code,
             prime_meridian_code,
             frame_reference_epoch,
+            anchor_epoch,
             ensemble,
         })
     }
@@ -724,28 +728,129 @@ impl<'a> TransformationParameters<'a> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum OperationCode<'a> {
+    Epsg(u32),
+    // proj.db's own operations between epsg crs, coded by text such as "WGS84_TO_WGS84_G1762"
+    Proj(&'a str),
+}
+
+impl std::fmt::Display for OperationCode<'_> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OperationCode::Epsg(code) => write!(formatter, "EPSG:{code}"),
+            OperationCode::Proj(code) => write!(formatter, "PROJ:{code}"),
+        }
+    }
+}
+
+const OPERATION_CODE_PROJ: u64 = 1;
+
+impl<'a> OperationCode<'a> {
+    pub fn authority(&self) -> &'static str {
+        match self {
+            OperationCode::Epsg(_) => "EPSG",
+            OperationCode::Proj(_) => "PROJ",
+        }
+    }
+
+    pub fn code_text(&self) -> String {
+        match self {
+            OperationCode::Epsg(code) => code.to_string(),
+            OperationCode::Proj(code) => (*code).to_string(),
+        }
+    }
+
+    fn encode(&self, out: &mut Vec<u8>, strings: &mut impl FnMut(&'a str) -> u32) {
+        let value = match *self {
+            OperationCode::Epsg(code) => u64::from(code) << 1,
+            OperationCode::Proj(code) => (u64::from(strings(code)) << 1) | OPERATION_CODE_PROJ,
+        };
+        write::varint(out, value);
+    }
+
+    fn decode(reader: &mut Reader<'a>, strings: &StringTable<'a>) -> Option<Self> {
+        let value = reader.varint()?;
+        let payload = u32::try_from(value >> 1).ok()?;
+        Some(if value & OPERATION_CODE_PROJ == 0 {
+            OperationCode::Epsg(payload)
+        } else {
+            OperationCode::Proj(strings.get(payload)?)
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OperationStep {
-    Operation(u32),
+pub enum StepReference<'a> {
+    Operation(OperationCode<'a>),
     Conversion(u32),
 }
 
-impl OperationStep {
-    fn encode(&self, out: &mut Vec<u8>) {
-        let (code, is_conversion) = match *self {
-            OperationStep::Operation(code) => (code, 0),
-            OperationStep::Conversion(code) => (code, 1),
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StepDirection {
+    Forward,
+    Reverse,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OperationStep<'a> {
+    pub reference: StepReference<'a>,
+    // proj.db gives a direction to every step of a proj operation and to no step of an epsg one
+    pub direction: Option<StepDirection>,
+}
+
+const STEP_EPSG_OPERATION: u64 = 0;
+const STEP_EPSG_CONVERSION: u64 = 1;
+const STEP_PROJ_OPERATION: u64 = 2;
+const STEP_KIND_BITS: u32 = 2;
+const STEP_DIRECTION_BITS: u32 = 2;
+const STEP_FIELD_MASK: u64 = 3;
+const STEP_NO_DIRECTION: u64 = 0;
+const STEP_FORWARD: u64 = 1;
+const STEP_REVERSE: u64 = 2;
+
+impl<'a> OperationStep<'a> {
+    fn encode(&self, out: &mut Vec<u8>, strings: &mut impl FnMut(&'a str) -> u32) {
+        let (kind, payload) = match self.reference {
+            StepReference::Operation(OperationCode::Epsg(code)) => {
+                (STEP_EPSG_OPERATION, u64::from(code))
+            }
+            StepReference::Conversion(code) => (STEP_EPSG_CONVERSION, u64::from(code)),
+            StepReference::Operation(OperationCode::Proj(code)) => {
+                (STEP_PROJ_OPERATION, u64::from(strings(code)))
+            }
         };
-        write::varint(out, (u64::from(code) << 1) | is_conversion);
+        let direction = match self.direction {
+            None => STEP_NO_DIRECTION,
+            Some(StepDirection::Forward) => STEP_FORWARD,
+            Some(StepDirection::Reverse) => STEP_REVERSE,
+        };
+        let header = (payload << (STEP_KIND_BITS + STEP_DIRECTION_BITS))
+            | (direction << STEP_KIND_BITS)
+            | kind;
+        write::varint(out, header);
     }
 
-    fn decode(reader: &mut Reader<'_>) -> Option<Self> {
-        let value = reader.varint()?;
-        let code = u32::try_from(value >> 1).ok()?;
-        Some(if value & 1 == 0 {
-            OperationStep::Operation(code)
-        } else {
-            OperationStep::Conversion(code)
+    fn decode(reader: &mut Reader<'a>, strings: &StringTable<'a>) -> Option<Self> {
+        let header = reader.varint()?;
+        let payload = u32::try_from(header >> (STEP_KIND_BITS + STEP_DIRECTION_BITS)).ok()?;
+        let direction = match (header >> STEP_KIND_BITS) & STEP_FIELD_MASK {
+            STEP_NO_DIRECTION => None,
+            STEP_FORWARD => Some(StepDirection::Forward),
+            STEP_REVERSE => Some(StepDirection::Reverse),
+            _ => return None,
+        };
+        let reference = match header & STEP_FIELD_MASK {
+            STEP_EPSG_OPERATION => StepReference::Operation(OperationCode::Epsg(payload)),
+            STEP_EPSG_CONVERSION => StepReference::Conversion(payload),
+            STEP_PROJ_OPERATION => {
+                StepReference::Operation(OperationCode::Proj(strings.get(payload)?))
+            }
+            _ => return None,
+        };
+        Some(Self {
+            reference,
+            direction,
         })
     }
 }
@@ -760,12 +865,12 @@ pub enum OperationKind<'a> {
     HelmertTransformation(Box<HelmertParameters<'a>>),
     GridTransformation(TransformationParameters<'a>),
     OtherTransformation(TransformationParameters<'a>),
-    ConcatenatedOperation(Vec<OperationStep>),
+    ConcatenatedOperation(Vec<OperationStep<'a>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OperationRecord<'a> {
-    pub code: u32,
+    pub code: OperationCode<'a>,
     pub name: &'a str,
     pub source_crs_code: u32,
     pub target_crs_code: u32,
@@ -777,7 +882,7 @@ pub struct OperationRecord<'a> {
 
 impl<'a> OperationRecord<'a> {
     pub fn encode(&self, out: &mut Vec<u8>, strings: &mut impl FnMut(&'a str) -> u32) {
-        write_code(out, self.code);
+        self.code.encode(out, strings);
         write_string(out, self.name, strings);
         write_code(out, self.source_crs_code);
         write_code(out, self.target_crs_code);
@@ -800,14 +905,14 @@ impl<'a> OperationRecord<'a> {
                 write::u8(out, OPERATION_CONCATENATED);
                 write::varint(out, steps.len() as u64);
                 for step in steps {
-                    step.encode(out);
+                    step.encode(out, strings);
                 }
             }
         }
     }
 
     pub fn decode(reader: &mut Reader<'a>, strings: &StringTable<'a>) -> Option<Self> {
-        let code = reader.code()?;
+        let code = OperationCode::decode(reader, strings)?;
         let name = strings.string(reader)?;
         let source_crs_code = reader.code()?;
         let target_crs_code = reader.code()?;
@@ -826,7 +931,7 @@ impl<'a> OperationRecord<'a> {
             OPERATION_CONCATENATED => {
                 let step_count = reader.varint()?;
                 let steps = (0..step_count)
-                    .map(|_| OperationStep::decode(reader))
+                    .map(|_| OperationStep::decode(reader, strings))
                     .collect::<Option<Vec<_>>>()?;
                 OperationKind::ConcatenatedOperation(steps)
             }
@@ -974,7 +1079,7 @@ mod tests {
     #[test]
     fn time_dependent_helmert_roundtrips() {
         let record = OperationRecord {
-            code: 8366,
+            code: OperationCode::Epsg(8366),
             name: "ITRF2014 to ETRF2014 (1)",
             source_crs_code: 7789,
             target_crs_code: 8401,
@@ -1027,7 +1132,7 @@ mod tests {
     #[test]
     fn grid_and_concatenated_operations_roundtrip() {
         let grid = OperationRecord {
-            code: 10811,
+            code: OperationCode::Epsg(10811),
             name: "NKG_ETRF14 to ETRS89-NOR [EUREF89] (1)",
             source_crs_code: 10805,
             target_crs_code: 10873,
@@ -1068,30 +1173,85 @@ mod tests {
             }),
         };
         let concatenated = OperationRecord {
-            code: 10778,
+            code: OperationCode::Epsg(10778),
             name: "KKJ to EUREF-FIN (3)",
             source_crs_code: 4123,
             target_crs_code: 10690,
             accuracy: Some(0.03),
             extent_codes: vec![3333],
             kind: OperationKind::ConcatenatedOperation(vec![
-                OperationStep::Conversion(18193),
-                OperationStep::Operation(10703),
-                OperationStep::Conversion(16065),
+                step(StepReference::Conversion(18193), None),
+                step(StepReference::Operation(OperationCode::Epsg(10703)), None),
+                step(StepReference::Conversion(16065), None),
+            ]),
+        };
+        let proj_concatenated = OperationRecord {
+            code: OperationCode::Proj("ETRS89_TO_S_JTSK_E_N"),
+            name: "ETRS89 to S-JTSK / Krovak East North (EPSG:5514)",
+            source_crs_code: 4258,
+            target_crs_code: 5514,
+            accuracy: None,
+            extent_codes: vec![1079],
+            kind: OperationKind::ConcatenatedOperation(vec![
+                step(
+                    StepReference::Operation(OperationCode::Epsg(5226)),
+                    Some(StepDirection::Reverse),
+                ),
+                step(
+                    StepReference::Conversion(5512),
+                    Some(StepDirection::Forward),
+                ),
+                step(
+                    StepReference::Operation(OperationCode::Proj("S_JTSK_E_N_TO_S_JTSK05_E_N")),
+                    Some(StepDirection::Reverse),
+                ),
             ]),
         };
 
         let encoded = encode(|out, strings| {
             grid.encode(out, &mut |text| strings(text));
             concatenated.encode(out, &mut |text| strings(text));
+            proj_concatenated.encode(out, &mut |text| strings(text));
         });
         let strings = StringTable::decode(&encoded.strings, encoded.string_count).unwrap();
-        let decoded = decode_records(&encoded.payload, 2, |reader| {
+        let decoded = decode_records(&encoded.payload, 3, |reader| {
             OperationRecord::decode(reader, &strings)
         })
         .unwrap();
 
-        assert_eq!(decoded, [grid, concatenated]);
+        assert_eq!(decoded, [grid, concatenated, proj_concatenated]);
+    }
+
+    fn step(
+        reference: StepReference<'static>,
+        direction: Option<StepDirection>,
+    ) -> OperationStep<'static> {
+        OperationStep {
+            reference,
+            direction,
+        }
+    }
+
+    #[test]
+    fn epsg_codes_sort_before_proj_codes() {
+        let mut codes = [
+            OperationCode::Proj("WGS84_TO_WGS84_G1150"),
+            OperationCode::Epsg(10778),
+            OperationCode::Proj("ETRS89_TO_ETRF2000"),
+            OperationCode::Epsg(1188),
+        ];
+        codes.sort();
+
+        assert_eq!(
+            codes,
+            [
+                OperationCode::Epsg(1188),
+                OperationCode::Epsg(10778),
+                OperationCode::Proj("ETRS89_TO_ETRF2000"),
+                OperationCode::Proj("WGS84_TO_WGS84_G1150"),
+            ]
+        );
+        assert_eq!(codes[2].to_string(), "PROJ:ETRS89_TO_ETRF2000");
     }
 
     #[test]
@@ -1102,6 +1262,7 @@ mod tests {
             ellipsoid_code: 7030,
             prime_meridian_code: 8901,
             frame_reference_epoch: None,
+            anchor_epoch: None,
             ensemble: Some(DatumEnsemble {
                 accuracy: 2.0,
                 member_codes: vec![1166, 1152, 1153],

@@ -3,6 +3,16 @@ use thiserror::Error;
 /// Errors that can occur during coordinate transformations.
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("{kind} {code} is not in the registry")]
+    NoSuchAuthorityCode { kind: &'static str, code: String },
+
+    #[error("cannot build {kind} {code}: {reason}")]
+    Factory {
+        kind: &'static str,
+        code: String,
+        reason: String,
+    },
+
     #[error("unsupported CRS: {0}")]
     UnsupportedCrs(String),
 

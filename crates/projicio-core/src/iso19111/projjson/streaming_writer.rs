@@ -164,7 +164,7 @@ fn strip_trailing_zeros(number: &str) -> &str {
     number.trim_end_matches('0').trim_end_matches('.')
 }
 
-pub(super) fn format_general(value: f64, precision: usize) -> String {
+pub(crate) fn format_general(value: f64, precision: usize) -> String {
     // sqlite3_vsnprintf, which PROJ formats numbers with, stops at 16 significant digits
     let precision = precision.clamp(1, 16);
     let mantissa_decimals = precision - 1;

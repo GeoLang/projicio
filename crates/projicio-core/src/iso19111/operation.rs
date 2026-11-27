@@ -167,10 +167,15 @@ impl Conversion {
 pub struct Transformation {
     pub name: String,
     pub identifiers: Vec<Identifier>,
+    pub remarks: String,
+    pub domains: Vec<super::common::ObjectDomain>,
     pub source_crs: Box<Crs>,
     pub target_crs: Box<Crs>,
+    pub interpolation_crs: Option<Box<Crs>>,
     pub method: OperationMethod,
     pub parameter_values: Vec<OperationParameterValue>,
+    // proj keeps an accuracy as the text proj.db or the input gave
+    pub accuracies: Vec<String>,
 }
 
 impl Transformation {

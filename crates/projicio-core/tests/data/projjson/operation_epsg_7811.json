@@ -1,0 +1,319 @@
+{
+  "$schema": "https://proj.org/schemas/v0.7/projjson.schema.json",
+  "type": "ConcatenatedOperation",
+  "name": "NTF (Paris) to RGF93 v1 (2)",
+  "source_crs": {
+    "type": "GeographicCRS",
+    "name": "NTF (Paris)",
+    "datum": {
+      "type": "GeodeticReferenceFrame",
+      "name": "Nouvelle Triangulation Francaise (Paris)",
+      "ellipsoid": {
+        "name": "Clarke 1880 (IGN)",
+        "semi_major_axis": 6378249.2,
+        "semi_minor_axis": 6356515
+      },
+      "prime_meridian": {
+        "name": "Paris",
+        "longitude": {
+          "value": 2.5969213,
+          "unit": {
+            "type": "AngularUnit",
+            "name": "grad",
+            "conversion_factor": 0.0157079632679489
+          }
+        }
+      }
+    },
+    "coordinate_system": {
+      "subtype": "ellipsoidal",
+      "axis": [
+        {
+          "name": "Geodetic latitude",
+          "abbreviation": "Lat",
+          "direction": "north",
+          "unit": {
+            "type": "AngularUnit",
+            "name": "grad",
+            "conversion_factor": 0.0157079632679489
+          }
+        },
+        {
+          "name": "Geodetic longitude",
+          "abbreviation": "Lon",
+          "direction": "east",
+          "unit": {
+            "type": "AngularUnit",
+            "name": "grad",
+            "conversion_factor": 0.0157079632679489
+          }
+        }
+      ]
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 4807
+    }
+  },
+  "target_crs": {
+    "type": "GeographicCRS",
+    "name": "RGF93 v1",
+    "datum": {
+      "type": "GeodeticReferenceFrame",
+      "name": "Reseau Geodesique Francais 1993 v1",
+      "ellipsoid": {
+        "name": "GRS 1980",
+        "semi_major_axis": 6378137,
+        "inverse_flattening": 298.257222101
+      }
+    },
+    "coordinate_system": {
+      "subtype": "ellipsoidal",
+      "axis": [
+        {
+          "name": "Geodetic latitude",
+          "abbreviation": "Lat",
+          "direction": "north",
+          "unit": "degree"
+        },
+        {
+          "name": "Geodetic longitude",
+          "abbreviation": "Lon",
+          "direction": "east",
+          "unit": "degree"
+        }
+      ]
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 4171
+    },
+    "remarks": "See CRS code 7084 for alternate system with axes reversed used by IGN for GIS purposes. Replaced by RGF93 v2 (CRS code 9777) from 2010-06-18."
+  },
+  "steps": [
+    {
+      "type": "Transformation",
+      "name": "NTF (Paris) to NTF (1)",
+      "source_crs": {
+        "type": "GeographicCRS",
+        "name": "NTF (Paris)",
+        "datum": {
+          "type": "GeodeticReferenceFrame",
+          "name": "Nouvelle Triangulation Francaise (Paris)",
+          "ellipsoid": {
+            "name": "Clarke 1880 (IGN)",
+            "semi_major_axis": 6378249.2,
+            "semi_minor_axis": 6356515
+          },
+          "prime_meridian": {
+            "name": "Paris",
+            "longitude": {
+              "value": 2.5969213,
+              "unit": {
+                "type": "AngularUnit",
+                "name": "grad",
+                "conversion_factor": 0.0157079632679489
+              }
+            }
+          }
+        },
+        "coordinate_system": {
+          "subtype": "ellipsoidal",
+          "axis": [
+            {
+              "name": "Geodetic latitude",
+              "abbreviation": "Lat",
+              "direction": "north",
+              "unit": {
+                "type": "AngularUnit",
+                "name": "grad",
+                "conversion_factor": 0.0157079632679489
+              }
+            },
+            {
+              "name": "Geodetic longitude",
+              "abbreviation": "Lon",
+              "direction": "east",
+              "unit": {
+                "type": "AngularUnit",
+                "name": "grad",
+                "conversion_factor": 0.0157079632679489
+              }
+            }
+          ]
+        },
+        "id": {
+          "authority": "EPSG",
+          "code": 4807
+        }
+      },
+      "target_crs": {
+        "type": "GeographicCRS",
+        "name": "NTF",
+        "datum": {
+          "type": "GeodeticReferenceFrame",
+          "name": "Nouvelle Triangulation Francaise",
+          "ellipsoid": {
+            "name": "Clarke 1880 (IGN)",
+            "semi_major_axis": 6378249.2,
+            "semi_minor_axis": 6356515
+          }
+        },
+        "coordinate_system": {
+          "subtype": "ellipsoidal",
+          "axis": [
+            {
+              "name": "Geodetic latitude",
+              "abbreviation": "Lat",
+              "direction": "north",
+              "unit": "degree"
+            },
+            {
+              "name": "Geodetic longitude",
+              "abbreviation": "Lon",
+              "direction": "east",
+              "unit": "degree"
+            }
+          ]
+        },
+        "id": {
+          "authority": "EPSG",
+          "code": 4275
+        }
+      },
+      "method": {
+        "name": "Longitude rotation",
+        "id": {
+          "authority": "EPSG",
+          "code": 9601
+        }
+      },
+      "parameters": [
+        {
+          "name": "Longitude offset",
+          "value": 2.5969213,
+          "unit": {
+            "type": "AngularUnit",
+            "name": "grad",
+            "conversion_factor": 0.0157079632679489
+          },
+          "id": {
+            "authority": "EPSG",
+            "code": 8602
+          }
+        }
+      ],
+      "accuracy": "0.0",
+      "id": {
+        "authority": "EPSG",
+        "code": 1763
+      }
+    },
+    {
+      "type": "Transformation",
+      "name": "Inverse of RGF93 v1 to NTF (2)",
+      "source_crs": {
+        "type": "GeographicCRS",
+        "name": "NTF",
+        "datum": {
+          "type": "GeodeticReferenceFrame",
+          "name": "Nouvelle Triangulation Francaise",
+          "ellipsoid": {
+            "name": "Clarke 1880 (IGN)",
+            "semi_major_axis": 6378249.2,
+            "semi_minor_axis": 6356515
+          }
+        },
+        "coordinate_system": {
+          "subtype": "ellipsoidal",
+          "axis": [
+            {
+              "name": "Geodetic latitude",
+              "abbreviation": "Lat",
+              "direction": "north",
+              "unit": "degree"
+            },
+            {
+              "name": "Geodetic longitude",
+              "abbreviation": "Lon",
+              "direction": "east",
+              "unit": "degree"
+            }
+          ]
+        },
+        "id": {
+          "authority": "EPSG",
+          "code": 4275
+        }
+      },
+      "target_crs": {
+        "type": "GeographicCRS",
+        "name": "RGF93 v1",
+        "datum": {
+          "type": "GeodeticReferenceFrame",
+          "name": "Reseau Geodesique Francais 1993 v1",
+          "ellipsoid": {
+            "name": "GRS 1980",
+            "semi_major_axis": 6378137,
+            "inverse_flattening": 298.257222101
+          }
+        },
+        "coordinate_system": {
+          "subtype": "ellipsoidal",
+          "axis": [
+            {
+              "name": "Geodetic latitude",
+              "abbreviation": "Lat",
+              "direction": "north",
+              "unit": "degree"
+            },
+            {
+              "name": "Geodetic longitude",
+              "abbreviation": "Lon",
+              "direction": "east",
+              "unit": "degree"
+            }
+          ]
+        },
+        "id": {
+          "authority": "EPSG",
+          "code": 4171
+        },
+        "remarks": "See CRS code 7084 for alternate system with axes reversed used by IGN for GIS purposes. Replaced by RGF93 v2 (CRS code 9777) from 2010-06-18."
+      },
+      "method": {
+        "name": "HORIZONTAL_SHIFT_GTIFF"
+      },
+      "parameters": [
+        {
+          "name": "Latitude and longitude difference file",
+          "value": "fr_ign_ntf_r93.tif",
+          "id": {
+            "authority": "EPSG",
+            "code": 8656
+          }
+        }
+      ],
+      "accuracy": "1.0",
+      "id": {
+        "authority": "INVERSE(DERIVED_FROM(EPSG))",
+        "code": 15958
+      },
+      "remarks": "Emulation using NTv2 method of NTF to RGF93 v1 (1), code 9327. Note that grid file parameters are of opposite sign. May be taken as approximate CT to ETRS89 or WGS 84 (see codes 15959 and 15960). Also used to transform later realizations of RGF93 to NTF."
+    }
+  ],
+  "accuracy": "1.0",
+  "scope": "Transformation of coordinates at 1m level of accuracy.",
+  "area": "France - onshore - mainland and Corsica.",
+  "bbox": {
+    "south_latitude": 41.31,
+    "west_longitude": -4.87,
+    "north_latitude": 51.14,
+    "east_longitude": 9.63
+  },
+  "id": {
+    "authority": "EPSG",
+    "code": 7811
+  },
+  "remarks": "Second step is an emulation (using the NTv2 method) of the geocentric interpolation method described in CT code 9337. Note that the grid file parameters are of opposite sign."
+}

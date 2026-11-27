@@ -5,8 +5,12 @@ use serde_json::{Map, Value};
 use super::streaming_writer::format_general;
 use crate::Error;
 use crate::iso19111::common::{Measure, ObjectDomain, UnitOfMeasure, UnitType, leading_integer};
+use crate::iso19111::coordinate_operation::{
+    ConcatenatedOperation, CoordinateOperation, PointMotionOperation,
+};
 use crate::iso19111::coordinate_system::{
-    AxisDirection, CartesianCs, CoordinateSystemAxis, EllipsoidalCs, Meridian, RangeMeaning,
+    AxisDirection, CartesianCs, CoordinateSystem, CoordinateSystemAxis, EllipsoidalCs, Meridian,
+    RangeMeaning,
 };
 use crate::iso19111::crs::{BoundCrs, Crs, GeodeticCrs, GeographicCrs, ProjectedCrs};
 use crate::iso19111::datum::{
@@ -556,11 +560,6 @@ fn build_axis(j: &Object) -> Result<CoordinateSystemAxis, Error> {
     })
 }
 
-enum CoordinateSystem {
-    Ellipsoidal(EllipsoidalCs),
-    Cartesian(CartesianCs),
-}
-
 fn build_coordinate_system(j: &Object) -> Result<CoordinateSystem, Error> {
     let subtype = get_string(j, "subtype")?;
     let axes = get(j, "axis")?
@@ -741,12 +740,10 @@ fn bound_crs_transformation_source(source_crs: &Crs, target_crs: &Crs) -> Result
     }))
 }
 
-fn build_bound_crs(j: &Object) -> Result<BoundCrs, Error> {
-    let source_crs = build_crs(get_object(j, "source_crs")?)?;
-    let target_crs = build_crs(get_object(j, "target_crs")?)?;
-    let transformation_object = get_object(j, "transformation")?;
-    let method = build_method(get_object(transformation_object, "method")?)?;
-    let parameter_values = get_array(transformation_object, "parameters")?
+fn build_transformation_parameter_values(
+    j: &Object,
+) -> Result<Vec<OperationParameterValue>, Error> {
+    get_array(j, "parameters")?
         .iter()
         .map(|parameter| {
             let (parameter_object, parameter) = build_parameter(parameter)?;
@@ -756,7 +753,15 @@ fn build_bound_crs(j: &Object) -> Result<BoundCrs, Error> {
             };
             Ok(OperationParameterValue { parameter, value })
         })
-        .collect::<Result<Vec<_>, Error>>()?;
+        .collect()
+}
+
+fn build_bound_crs(j: &Object) -> Result<BoundCrs, Error> {
+    let source_crs = build_crs(get_object(j, "source_crs")?)?;
+    let target_crs = build_crs(get_object(j, "target_crs")?)?;
+    let transformation_object = get_object(j, "transformation")?;
+    let method = build_method(get_object(transformation_object, "method")?)?;
+    let parameter_values = build_transformation_parameter_values(transformation_object)?;
     // PROJ accepts an explicit source_crs on the transformation, PROJ issue 3428
     let transformation_source = if transformation_object.contains_key("source_crs") {
         build_crs(get_object(transformation_object, "source_crs")?)?
@@ -766,10 +771,14 @@ fn build_bound_crs(j: &Object) -> Result<BoundCrs, Error> {
     let transformation = Transformation {
         name: get_string(transformation_object, "name")?,
         identifiers: build_identifiers(transformation_object)?,
+        remarks: String::new(),
+        domains: Vec::new(),
         source_crs: Box::new(transformation_source),
         target_crs: Box::new(target_crs.clone()),
+        interpolation_crs: None,
         method,
         parameter_values,
+        accuracies: Vec::new(),
     };
     let name = get_optional_string(j, "name")?.unwrap_or_else(|| source_crs.name().to_string());
     Ok(BoundCrs {
@@ -780,5 +789,149 @@ fn build_bound_crs(j: &Object) -> Result<BoundCrs, Error> {
         source_crs: Box::new(source_crs),
         target_crs: Box::new(target_crs),
         transformation,
+    })
+}
+
+impl CoordinateOperation {
+    pub fn from_projjson(text: &str) -> Result<Self, Error> {
+        let value: Value = serde_json::from_str(text).map_err(|e| parse_error(e.to_string()))?;
+        let Value::Object(object) = &value else {
+            return Err(parse_error("JSON object expected"));
+        };
+        build_coordinate_operation(object)
+    }
+}
+
+fn build_accuracies(j: &Object) -> Result<Vec<String>, Error> {
+    Ok(get_optional_string(j, "accuracy")?.into_iter().collect())
+}
+
+fn build_coordinate_operation(j: &Object) -> Result<CoordinateOperation, Error> {
+    match get_string(j, "type")?.as_str() {
+        "Transformation" => Ok(CoordinateOperation::Transformation(build_transformation(
+            j,
+        )?)),
+        "PointMotionOperation" => Ok(CoordinateOperation::PointMotion(
+            build_point_motion_operation(j)?,
+        )),
+        "ConcatenatedOperation" => Ok(CoordinateOperation::Concatenated(
+            build_concatenated_operation(j)?,
+        )),
+        "Conversion" => Err(parse_error(
+            "a Conversion is read only as a step, which gives it its source and target CRS",
+        )),
+        other => Err(parse_error(format!(
+            "{other} is not a supported coordinate operation"
+        ))),
+    }
+}
+
+fn build_transformation(j: &Object) -> Result<Transformation, Error> {
+    let source_crs = build_crs(get_object(j, "source_crs")?)?;
+    let target_crs = build_crs(get_object(j, "target_crs")?)?;
+    let interpolation_crs = if j.contains_key("interpolation_crs") {
+        Some(Box::new(build_crs(get_object(j, "interpolation_crs")?)?))
+    } else {
+        None
+    };
+    let method = build_method(get_object(j, "method")?)?;
+    let parameter_values = build_transformation_parameter_values(j)?;
+    let usage = build_usage(j)?;
+    Ok(Transformation {
+        name: usage.name,
+        identifiers: usage.identifiers,
+        remarks: usage.remarks,
+        domains: usage.domains,
+        source_crs: Box::new(source_crs),
+        target_crs: Box::new(target_crs),
+        interpolation_crs,
+        method,
+        parameter_values,
+        accuracies: build_accuracies(j)?,
+    })
+}
+
+fn build_point_motion_operation(j: &Object) -> Result<PointMotionOperation, Error> {
+    let crs = build_crs(get_object(j, "source_crs")?)?;
+    let method = build_method(get_object(j, "method")?)?;
+    let parameter_values = build_transformation_parameter_values(j)?;
+    let usage = build_usage(j)?;
+    Ok(PointMotionOperation {
+        name: usage.name,
+        identifiers: usage.identifiers,
+        remarks: usage.remarks,
+        domains: usage.domains,
+        crs: Box::new(crs),
+        method,
+        parameter_values,
+        accuracies: build_accuracies(j)?,
+    })
+}
+
+enum ReadStep {
+    Conversion(Conversion),
+    Operation(CoordinateOperation),
+}
+
+fn build_concatenated_operation(j: &Object) -> Result<ConcatenatedOperation, Error> {
+    let source_crs = build_crs(get_object(j, "source_crs")?)?;
+    let target_crs = build_crs(get_object(j, "target_crs")?)?;
+    let read_steps = get_array(j, "steps")?
+        .iter()
+        .map(|step| {
+            let step = step
+                .as_object()
+                .ok_or_else(|| parse_error("Unexpected type for a \"steps\" child"))?;
+            if get_string(step, "type")? == "Conversion" {
+                return Ok(ReadStep::Conversion(build_conversion(step)?));
+            }
+            Ok(ReadStep::Operation(build_coordinate_operation(step)?))
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+    let neighbour_crs = |index: Option<usize>, end: bool| -> Result<Box<Crs>, Error> {
+        match index.map(|index| &read_steps[index]) {
+            None if end => Ok(Box::new(target_crs.clone())),
+            None => Ok(Box::new(source_crs.clone())),
+            Some(ReadStep::Operation(operation)) if end => {
+                Ok(Box::new(operation.source_crs().clone()))
+            }
+            Some(ReadStep::Operation(operation)) => Ok(Box::new(operation.target_crs().clone())),
+            Some(ReadStep::Conversion(_)) => Err(parse_error(
+                "two Conversion steps in a row leave the CRS between them unknown",
+            )),
+        }
+    };
+    let last_index = read_steps.len().saturating_sub(1);
+    let mut steps = Vec::with_capacity(read_steps.len());
+    for (index, read_step) in read_steps.iter().enumerate() {
+        match read_step {
+            ReadStep::Operation(operation) => steps.push(operation.clone()),
+            // proj's fixSteps runs a conversion step between the crs of its neighbours
+            ReadStep::Conversion(conversion) => {
+                let previous = index.checked_sub(1);
+                let next = (index < last_index).then_some(index + 1);
+                steps.push(CoordinateOperation::Conversion {
+                    conversion: conversion.clone(),
+                    source_crs: neighbour_crs(previous, false)?,
+                    target_crs: neighbour_crs(next, true)?,
+                });
+            }
+        }
+    }
+    if steps.len() < 2 {
+        return Err(parse_error(
+            "ConcatenatedOperation must have at least 2 operations",
+        ));
+    }
+    let usage = build_usage(j)?;
+    Ok(ConcatenatedOperation {
+        name: usage.name,
+        identifiers: usage.identifiers,
+        remarks: usage.remarks,
+        domains: usage.domains,
+        source_crs: Box::new(source_crs),
+        target_crs: Box::new(target_crs),
+        steps,
+        accuracies: build_accuracies(j)?,
     })
 }

@@ -238,3 +238,9 @@ impl CartesianCs {
         axes_are_equivalent(&self.axes, &other.axes)
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CoordinateSystem {
+    Ellipsoidal(EllipsoidalCs),
+    Cartesian(CartesianCs),
+}

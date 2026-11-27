@@ -18,16 +18,36 @@ jobs:
 
   registry:
     runs-on: ubuntu-latest
+    env:
+      # must match PINNED_PROJ_VERSION in tools/gen-epsg-registry, which refuses any other proj.db
+      PROJ_VERSION: 9.8.1
+      PROJ_SHA256: af5b731c145c1d13c4e3b4eeb7d167e94e845e440f71e3496b4ed8dae0291960
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: tools/gen-epsg-registry
-      - name: Install PROJ build tools
+      - name: Install proj.db build tools
         run: sudo apt-get update && sudo apt-get install -y cmake sqlite3
+      - name: Build proj.db from the PROJ ${{ env.PROJ_VERSION }} release
+        run: |
+          curl -sSfL "https://download.osgeo.org/proj/proj-${PROJ_VERSION}.tar.gz" -o proj.tar.gz
+          echo "${PROJ_SHA256}  proj.tar.gz" | sha256sum -c -
+          tar xzf proj.tar.gz
+          mkdir proj-db
+          cd "proj-${PROJ_VERSION}/data"
+          # PROJ's data/CMakeLists.txt runs this script with these variables to build proj.db
+          cmake \
+            -DALL_SQL_IN="${GITHUB_WORKSPACE}/proj-db/all.sql.in" \
+            -DEXE_SQLITE3="$(command -v sqlite3)" \
+            -DPROJ_DB="${GITHUB_WORKSPACE}/proj-db/proj.db" \
+            -DPROJ_VERSION="${PROJ_VERSION}" \
+            -DPROJ_DB_SQL_EXPECTED_MD5="$(sed -n 's/^set(PROJ_DB_SQL_EXPECTED_MD5 "\(.*\)")$/\1/p' CMakeLists.txt)" \
+            -DDATA_BINARY_DIR="${GITHUB_WORKSPACE}/proj-db" \
+            -P generate_proj_db.cmake
       - name: Committed registry regenerates byte for byte
-        run: cargo run --manifest-path tools/gen-epsg-registry/Cargo.toml -- --check
+        run: cargo run --manifest-path tools/gen-epsg-registry/Cargo.toml -- --check --proj-db proj-db/proj.db
 
   wasm:
     runs-on: ubuntu-latest

@@ -12,9 +12,10 @@
 //! [`Support::NeedsGrid`] until the caller supplies the `.gsb` file through
 //! [`grids::register_file`].
 //!
-//! The `registry` feature, on by default, embeds EPSG metadata generated from
-//! PROJ's proj.db: names, kind, deprecation, datum links, and areas of use.
-//! See `epsg::metadata`.
+//! The `registry` feature, on by default, embeds EPSG data generated from
+//! PROJ's proj.db: names, kind, deprecation, datum links, and areas of use
+//! (see `epsg::metadata`), and the CRS definitions and coordinate operations
+//! the `registry` module looks up by code.
 
 mod datum;
 mod ellipsoid;
@@ -26,7 +27,7 @@ pub mod iso19111;
 mod projection;
 pub mod projstring;
 #[cfg(feature = "registry")]
-mod registry;
+pub mod registry;
 mod transform;
 
 pub use datum::{

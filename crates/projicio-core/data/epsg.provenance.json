@@ -11,18 +11,29 @@
   "source_database": {
     "kind": "PROJ proj.db",
     "file_name": "proj.db",
-    "epsg_version": "v12.013",
-    "proj_version": "9.6.2",
-    "normalized_content_sha256": "sha256:910dded405b766e7fb8d80be9bfe942ff83c52ea022068bc96db0f5e1f57fa28"
+    "epsg_version": "v12.029",
+    "proj_version": "9.8.1",
+    "normalized_content_sha256": "sha256:49197ca1b79b30f0c5f2374db0a73e7ce0ac3fd99d2478cd36ee977f30a939d3"
   },
   "output": {
     "file_name": "epsg.bin",
-    "byte_len": 571923,
-    "sha256": "sha256:67f6cde97d90660a2c5c4764ac25ddf2267eb424d56a87ee040202332a062032"
+    "byte_len": 1038742,
+    "sha256": "sha256:38811da9802a6fec4f6914b78bca0a8adb4368b0e71705067f97ff2d1ef506a1"
   },
   "counts": {
-    "crs": 7627,
-    "extents": 2820,
-    "datum_aliases": 1810
+    "crs": 7724,
+    "extents": 3191,
+    "datum_aliases": 1879,
+    "strings": 6042,
+    "units_of_measure": 38,
+    "ellipsoids": 44,
+    "prime_meridians": 14,
+    "datums": 598,
+    "coordinate_systems": 79,
+    "crs_definitions": 6426,
+    "conversions": 2420,
+    "coordinate_operations": 1985,
+    "grid_alternatives": 172,
+    "supersessions": 187
   }
 }

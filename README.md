@@ -131,11 +131,37 @@ records no area of use.
 metadata only. Which engine transforms a code, and whether it can, is still
 `epsg::support`.
 
-The data is a binary blob generated from PROJ's proj.db by `tools/gen-epsg-registry`, a
-package outside the workspace so that building or testing projicio never builds PROJ.
+The `projicio_core::registry` module also looks up, by EPSG code, the definitions behind
+every current geodetic and projected CRS and every current EPSG coordinate operation
+between geodetic CRSs: units of measure, ellipsoids, prime meridians, datums and datum
+ensembles, coordinate systems with their axes, CRS definitions, conversions with their
+method and parameters, Helmert, grid, other and concatenated operations with their
+accuracy and areas of use, which operation supersedes which, and PROJ's CDN file for
+each grid an operation names. `registry::operations_between(source, target)` lists the
+operations between two CRSs in either direction. These are plain records, nothing in the
+transform path reads them yet.
+
+```rust
+use projicio_core::registry;
+
+let nad83_to_wgs84 = registry::coordinate_operation(1188).unwrap();
+assert_eq!(nad83_to_wgs84.accuracy, Some(4.0));
+```
+
+The data is a binary blob generated from PROJ 9.8.1's proj.db (EPSG v12.029) by
+`tools/gen-epsg-registry`, a package outside the workspace so that building or testing
+projicio never builds SQLite. The generator refuses a proj.db from any other PROJ
+release:
+
+```bash
+cargo run --manifest-path tools/gen-epsg-registry/Cargo.toml -- --proj-db /usr/share/proj/proj.db
+```
+
+It prints each section's size and the blob's size after gzip.
 `crates/projicio-core/data/epsg.provenance.json` records the EPSG and PROJ versions it
-came from, its checksum and its record counts, and CI regenerates the blob from a pinned
-PROJ build to prove it still matches byte for byte.
+came from, its checksum and its record counts. CI builds proj.db from the PROJ 9.8.1
+release tarball and regenerates the blob with `--check` to prove it still matches byte
+for byte.
 
 Turn the `registry` feature off to leave the blob out. The wasm bindings and the CLI
 already do, so `projicio info` prints the proj4 definition but no EPSG metadata.
@@ -244,7 +270,7 @@ exactly, which differs by 0.8 mm at the edge of a UTM zone at 60 degrees north a
 further out. `from_epsg_method` runs PROJ's own Poder/Engsager algorithm instead.
 
 The parity suite compares transforms against C PROJ's `cs2cs`. CI runs it weekly against
-PROJ 9.6.2 (`.github/workflows/parity.yml`), and locally it runs with:
+PROJ 9.8.1 (`.github/workflows/parity.yml`), and locally it runs with:
 
 ```bash
 PROJICIO_CS2CS=/usr/bin/cs2cs cargo test -p projicio-core --test proj_parity -- --ignored
@@ -260,7 +286,7 @@ definition itself asks for.
 
 ```
 projicio-core:         projection math, ellipsoids, datum transforms, NTv2, CRS registry, fallback engine, ISO 19111 CRS model and PROJJSON
-projicio-epsg-format:  binary layout of the embedded EPSG metadata registry
+projicio-epsg-format:  binary layout of the embedded EPSG registry, with typed record decoding
 projicio-cli:          command-line interface
 projicio-wasm:         WebAssembly bindings, built with wasm-pack build --target web
 ```

@@ -6,9 +6,11 @@
 //! semantic change is a format change: bump [`VERSION`] and regenerate the
 //! artifact so the CI reproducibility check proves writer and reader agree.
 //!
-//! The registry carries metadata only: CRS names, kind, deprecation, datum
-//! links, areas of use, and datum aliases. It never carries transform
-//! behavior.
+//! The registry carries EPSG data only: CRS names, kind, deprecation, datum
+//! links, areas of use and datum aliases, and the definitions behind them
+//! (units, ellipsoids, prime meridians, datums, coordinate systems, CRS
+//! definitions, conversions) plus every current EPSG coordinate operation
+//! between geodetic CRSs. It never carries transform behavior.
 //!
 //! # Container
 //!
@@ -35,17 +37,21 @@
 //! - [`SECTION_CRS`] — one record per EPSG CRS
 //! - [`SECTION_EXTENT`] — one record per referenced area of use
 //! - [`SECTION_DATUM_ALIAS`] — datum code to name or alternative name
+//! - [`SECTION_COORDINATE_OPERATION`] — coordinate operations
+//! - [`SECTION_GRID_RESOURCE`] — PROJ's grid alternatives for the grid files
+//!   operations name
+//! - [`SECTION_DATUM`] — geodetic datums and datum ensembles
+//! - [`SECTION_ELLIPSOID`] — ellipsoids
+//! - [`SECTION_STRING`] — the strings the sections from here on refer to
+//! - [`SECTION_UNIT_OF_MEASURE`] — units of measure
+//! - [`SECTION_PRIME_MERIDIAN`] — prime meridians
+//! - [`SECTION_COORDINATE_SYSTEM`] — coordinate systems with their axes
+//! - [`SECTION_CRS_DEFINITION`] — geodetic and projected CRS definitions
+//! - [`SECTION_CONVERSION`] — map projection conversions
+//! - [`SECTION_SUPERSESSION`] — which operation supersedes which
 //!
-//! Reserved for sections this registry does not carry yet. Nothing may reuse
-//! these values for another purpose:
-//!
-//! - [`SECTION_COORDINATE_OPERATION`] — operation records
-//! - [`SECTION_GRID_RESOURCE`] — datum shift grid records
-//! - [`SECTION_DATUM`] — datum definitions
-//! - [`SECTION_ELLIPSOID`] — ellipsoid definitions
-//!
-//! Tags 8 through 15 are reserved and unassigned. Tags 16 and above are free
-//! for future use.
+//! Tag 15 is reserved and unassigned. Tags 16 and above are free for future
+//! use.
 //!
 //! # Records
 //!
@@ -80,8 +86,80 @@
 //! 0   datum code  u32
 //! 4   name        string
 //! ```
+//!
+//! # Compact records
+//!
+//! Tags 4 to 14 are encoded and decoded by [`records`]. Their fields follow
+//! each other with no fixed offsets:
+//!
+//! - `varint` is unsigned LEB128. Codes, counts and string references are
+//!   varints.
+//! - `string` is a varint index into [`SECTION_STRING`], whose records are
+//!   `u16`-prefixed strings ordered from most to least used. An optional
+//!   string stores index + 1, and 0 when absent.
+//! - `decimal` is a varint `zigzag(m) << 5 | (e + 15)` for the value
+//!   `m * 10^e`, with `|m| < 2^53` and `e` in -15..=14. The low five bits are
+//!   30 for a raw `f64` that follows (and `m` 0), and 31 for an absent
+//!   optional value.
+//! - `codes` is a varint count then that many varint codes.
+//!
+//! Records are sorted by code, grid alternatives by original name and
+//! supersessions by superseded code then replacement code.
+//!
+//! ```text
+//! unit of measure  code, name string, kind u8 (1 length 2 angle 3 scale
+//!                  4 time), to-SI factor optional decimal
+//! ellipsoid        code, name string, semi-major axis decimal, unit code,
+//!                  inverse flattening optional decimal, semi-minor axis
+//!                  optional decimal (exactly one present)
+//! prime meridian   code, name string, longitude decimal, unit code
+//! datum            code, name string, ellipsoid code, prime meridian code,
+//!                  frame reference epoch optional decimal, ensemble accuracy
+//!                  optional decimal, ensemble member codes (empty unless
+//!                  the accuracy is present)
+//! coordinate system  code, kind u8 (1 Cartesian 2 ellipsoidal), axis count
+//!                  varint, then per axis in axis order: name string,
+//!                  abbreviation string, orientation string, unit code
+//! CRS definition   code, kind u8 (1 geographic 2D 2 geographic 3D
+//!                  3 geocentric: datum code; 4 projected: base CRS code,
+//!                  conversion code), coordinate system code, extent codes
+//! conversion       code, name string, method, parameters
+//! operation        code, name string, source CRS code, target CRS code,
+//!                  accuracy optional decimal, extent codes, kind u8, body
+//! grid alternative original name string, PROJ grid name optional string,
+//!                  old PROJ grid name optional string, format string,
+//!                  PROJ method string, URL optional string, flags u8
+//!                  (1 inverse direction 2 open license 4 direct download)
+//! supersession     superseded code, replacement code, u8 1 when proj.db
+//!                  marks the pair as having the same source and target CRS
+//!
+//! method      code, name string
+//! parameters  count varint, then per parameter: code, name string,
+//!             value decimal, unit code
+//! ```
+//!
+//! Operation bodies by kind:
+//!
+//! ```text
+//! 1 Helmert       method, groups u8, translation, then each group whose bit
+//!                 is set, in bit order: 1 rotation, 2 scale difference,
+//!                 4 rate of translation, 8 rate of rotation, 16 rate of
+//!                 scale difference, 32 epoch, 64 pivot point. A vector is
+//!                 three decimals then a unit code, a scalar one decimal
+//!                 then a unit code
+//! 2 grid, 3 other method, parameters, grid count varint, then per grid:
+//!                 parameter code, parameter name string, file name string,
+//!                 then interpolation CRS code (NO_CODE when absent)
+//! 4 concatenated  step count varint, then per step a varint
+//!                 `code << 1 | 1 if the step is a conversion`
+//! ```
+//!
+//! Extent codes list every area of use in the order PROJ reads them: scopes
+//! naming large scale first, then proj.db row order.
 
 #![forbid(unsafe_code)]
+
+pub mod records;
 
 /// File magic, the first eight bytes of the container.
 pub const MAGIC: [u8; 8] = *b"EPSGMETA";
@@ -94,18 +172,22 @@ pub const SECTION_ENTRY_SIZE: usize = 16;
 
 /// One record per EPSG CRS, sorted by code.
 pub const SECTION_CRS: u32 = 1;
-/// One record per area of use referenced by a CRS record, sorted by code.
+/// One record per area of use a record of another section refers to, sorted
+/// by code.
 pub const SECTION_EXTENT: u32 = 2;
 /// Datum names and alternative names, sorted by datum code then name.
 pub const SECTION_DATUM_ALIAS: u32 = 3;
-/// Reserved for coordinate operation records.
 pub const SECTION_COORDINATE_OPERATION: u32 = 4;
-/// Reserved for datum shift grid records.
 pub const SECTION_GRID_RESOURCE: u32 = 5;
-/// Reserved for datum definition records.
 pub const SECTION_DATUM: u32 = 6;
-/// Reserved for ellipsoid definition records.
 pub const SECTION_ELLIPSOID: u32 = 7;
+pub const SECTION_STRING: u32 = 8;
+pub const SECTION_UNIT_OF_MEASURE: u32 = 9;
+pub const SECTION_PRIME_MERIDIAN: u32 = 10;
+pub const SECTION_COORDINATE_SYSTEM: u32 = 11;
+pub const SECTION_CRS_DEFINITION: u32 = 12;
+pub const SECTION_CONVERSION: u32 = 13;
+pub const SECTION_SUPERSESSION: u32 = 14;
 /// Tags below this value are assigned or reserved by this crate.
 pub const FIRST_UNRESERVED_SECTION_TAG: u32 = 16;
 
@@ -129,11 +211,119 @@ pub const EXTENT_RECORD_BASE_SIZE: usize = 36;
 /// Fixed part of a datum alias record, excluding the trailing name string.
 pub const DATUM_ALIAS_RECORD_BASE_SIZE: usize = 4;
 
+const DECIMAL_EXPONENT_BITS: u32 = 5;
+const DECIMAL_EXPONENT_MASK: u64 = (1 << DECIMAL_EXPONENT_BITS) - 1;
+const DECIMAL_EXPONENT_BIAS: i32 = 15;
+const DECIMAL_LARGEST_EXPONENT: i32 = 14;
+const DECIMAL_RAW_MARKER: u64 = 30;
+const DECIMAL_ABSENT_MARKER: u64 = 31;
+// f64 holds every integer below 2^53 exactly
+const DECIMAL_MANTISSA_LIMIT: u64 = 1 << 53;
+const POWERS_OF_TEN: [f64; 16] = [
+    1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15,
+];
+
+fn decimal_value(mantissa: i64, exponent: i32) -> f64 {
+    let scale = POWERS_OF_TEN[exponent.unsigned_abs() as usize];
+    // ieee division and multiplication of two exact operands round correctly,
+    // the same as parsing the decimal text
+    if exponent < 0 {
+        mantissa as f64 / scale
+    } else {
+        mantissa as f64 * scale
+    }
+}
+
+fn zigzag(value: i64) -> u64 {
+    ((value << 1) ^ (value >> 63)) as u64
+}
+
+fn unzigzag(value: u64) -> i64 {
+    ((value >> 1) as i64) ^ -((value & 1) as i64)
+}
+
 /// Bounds-checked little-endian read primitives.
 ///
 /// Every read returns `None` rather than panicking so a reader can reject a
 /// truncated or corrupt blob with an error instead of aborting the process.
 pub mod read {
+    use super::{
+        DECIMAL_ABSENT_MARKER, DECIMAL_EXPONENT_BIAS, DECIMAL_EXPONENT_BITS, DECIMAL_EXPONENT_MASK,
+        DECIMAL_MANTISSA_LIMIT, DECIMAL_RAW_MARKER, decimal_value, unzigzag,
+    };
+
+    pub struct Reader<'a> {
+        data: &'a [u8],
+        position: usize,
+    }
+
+    impl<'a> Reader<'a> {
+        pub fn new(data: &'a [u8]) -> Self {
+            Self { data, position: 0 }
+        }
+
+        pub fn is_exhausted(&self) -> bool {
+            self.position == self.data.len()
+        }
+
+        pub fn u8(&mut self) -> Option<u8> {
+            let value = u8(self.data, self.position)?;
+            self.position += 1;
+            Some(value)
+        }
+
+        pub fn f64(&mut self) -> Option<f64> {
+            let value = f64(self.data, self.position)?;
+            self.position += 8;
+            Some(value)
+        }
+
+        pub fn varint(&mut self) -> Option<u64> {
+            let mut value = 0u64;
+            for shift in (0..64).step_by(7) {
+                let byte = self.u8()?;
+                let payload = u64::from(byte & 0x7f);
+                if shift == 63 && payload > 1 {
+                    return None;
+                }
+                value |= payload << shift;
+                if byte & 0x80 == 0 {
+                    return Some(value);
+                }
+            }
+            None
+        }
+
+        pub fn code(&mut self) -> Option<u32> {
+            u32::try_from(self.varint()?).ok()
+        }
+
+        pub fn decimal(&mut self) -> Option<f64> {
+            self.optional_decimal().flatten()
+        }
+
+        pub fn optional_decimal(&mut self) -> Option<Option<f64>> {
+            let header = self.varint()?;
+            let exponent_code = header & DECIMAL_EXPONENT_MASK;
+            let zigzag_mantissa = header >> DECIMAL_EXPONENT_BITS;
+            if exponent_code == DECIMAL_ABSENT_MARKER {
+                return (zigzag_mantissa == 0).then_some(None);
+            }
+            if exponent_code == DECIMAL_RAW_MARKER {
+                if zigzag_mantissa != 0 {
+                    return None;
+                }
+                return Some(Some(self.f64()?));
+            }
+            let mantissa = unzigzag(zigzag_mantissa);
+            if mantissa.unsigned_abs() >= DECIMAL_MANTISSA_LIMIT {
+                return None;
+            }
+            let exponent = exponent_code as i32 - DECIMAL_EXPONENT_BIAS;
+            Some(Some(decimal_value(mantissa, exponent)))
+        }
+    }
+
     pub fn bytes(data: &[u8], offset: usize, len: usize) -> Option<&[u8]> {
         data.get(offset..offset.checked_add(len)?)
     }
@@ -167,6 +357,12 @@ pub mod read {
 ///
 /// Float canonicalization is generator policy and lives with the generator.
 pub mod write {
+    use super::{
+        DECIMAL_ABSENT_MARKER, DECIMAL_EXPONENT_BIAS, DECIMAL_EXPONENT_BITS,
+        DECIMAL_LARGEST_EXPONENT, DECIMAL_MANTISSA_LIMIT, DECIMAL_RAW_MARKER, decimal_value,
+        zigzag,
+    };
+
     /// A string too long for the registry's `u16` byte-length prefix.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct StringTooLongError {
@@ -206,6 +402,63 @@ pub mod write {
 
     pub fn f64(buf: &mut Vec<u8>, value: f64) {
         buf.extend_from_slice(&value.to_le_bytes());
+    }
+
+    pub fn varint(buf: &mut Vec<u8>, mut value: u64) {
+        while value >= 0x80 {
+            buf.push((value as u8) | 0x80);
+            value >>= 7;
+        }
+        buf.push(value as u8);
+    }
+
+    pub fn decimal(buf: &mut Vec<u8>, value: f64) {
+        match decimal_parts(value) {
+            Some((mantissa, exponent)) => {
+                let exponent_code = (exponent + DECIMAL_EXPONENT_BIAS) as u64;
+                varint(
+                    buf,
+                    (zigzag(mantissa) << DECIMAL_EXPONENT_BITS) | exponent_code,
+                );
+            }
+            None => {
+                varint(buf, DECIMAL_RAW_MARKER);
+                f64(buf, value);
+            }
+        }
+    }
+
+    pub fn optional_decimal(buf: &mut Vec<u8>, value: Option<f64>) {
+        match value {
+            Some(value) => decimal(buf, value),
+            None => varint(buf, DECIMAL_ABSENT_MARKER),
+        }
+    }
+
+    fn decimal_parts(value: f64) -> Option<(i64, i32)> {
+        // rust prints the shortest digits that parse back to the same f64
+        let text = format!("{value:e}");
+        let (significand, exponent) = text.split_once('e')?;
+        let exponent: i32 = exponent.parse().ok()?;
+        let fraction_digits = significand
+            .split_once('.')
+            .map_or(0, |(_, fraction)| fraction.len());
+        let digits: String = significand.chars().filter(char::is_ascii_digit).collect();
+        let magnitude: u64 = digits.parse().ok()?;
+        if magnitude >= DECIMAL_MANTISSA_LIMIT {
+            return None;
+        }
+        let exponent = exponent - i32::try_from(fraction_digits).ok()?;
+        if !(-DECIMAL_EXPONENT_BIAS..=DECIMAL_LARGEST_EXPONENT).contains(&exponent) {
+            return None;
+        }
+        let mantissa = if significand.starts_with('-') {
+            -(magnitude as i64)
+        } else {
+            magnitude as i64
+        };
+        let exact = decimal_value(mantissa, exponent).to_bits() == value.to_bits();
+        exact.then_some((mantissa, exponent))
     }
 
     /// Write a `u16` length-prefixed UTF-8 string, leaving `buf` untouched
@@ -399,6 +652,83 @@ mod tests {
     }
 
     #[test]
+    fn varints_roundtrip_and_reject_overlong_input() {
+        let mut buf = Vec::new();
+        for value in [0, 127, 128, 16_383, 16_384, u64::from(u32::MAX), u64::MAX] {
+            write::varint(&mut buf, value);
+        }
+        let mut reader = read::Reader::new(&buf);
+
+        assert_eq!(reader.varint(), Some(0));
+        assert_eq!(reader.varint(), Some(127));
+        assert_eq!(reader.code(), Some(128));
+        assert_eq!(reader.varint(), Some(16_383));
+        assert_eq!(reader.varint(), Some(16_384));
+        assert_eq!(reader.code(), Some(u32::MAX));
+        assert_eq!(reader.code(), None);
+        assert!(reader.is_exhausted());
+
+        let overlong = [0xFF; 11];
+        assert_eq!(read::Reader::new(&overlong).varint(), None);
+    }
+
+    #[test]
+    fn decimals_roundtrip_bit_for_bit() {
+        let values = [
+            0.0,
+            -0.0,
+            1.0,
+            -87.5,
+            0.9996,
+            500_000.0,
+            6_378_137.0,
+            298.257_222_101,
+            46.952_405_555_555_6,
+            -0.000_000_123,
+            std::f64::consts::PI,
+            1e-20,
+            1e300,
+            123_456_789_012_345_680.0,
+        ];
+        let mut buf = Vec::new();
+        for value in values {
+            write::decimal(&mut buf, value);
+        }
+        let mut reader = read::Reader::new(&buf);
+
+        for value in values {
+            assert_eq!(reader.decimal().map(f64::to_bits), Some(value.to_bits()));
+        }
+        assert!(reader.is_exhausted());
+    }
+
+    #[test]
+    fn short_decimals_take_few_bytes() {
+        let encoded_len = |value: f64| {
+            let mut buf = Vec::new();
+            write::decimal(&mut buf, value);
+            buf.len()
+        };
+
+        assert_eq!(encoded_len(0.0), 1);
+        assert_eq!(encoded_len(500_000.0), 2);
+        assert_eq!(encoded_len(0.9996), 3);
+        assert_eq!(encoded_len(1e-20), 9);
+    }
+
+    #[test]
+    fn absent_decimals_are_optional_only() {
+        let mut buf = Vec::new();
+        write::optional_decimal(&mut buf, None);
+        write::optional_decimal(&mut buf, Some(2.5));
+
+        let mut reader = read::Reader::new(&buf);
+        assert_eq!(reader.optional_decimal(), Some(None));
+        assert_eq!(reader.optional_decimal(), Some(Some(2.5)));
+        assert_eq!(read::Reader::new(&buf).decimal(), None);
+    }
+
+    #[test]
     fn truncated_reads_report_none() {
         let mut buf = Vec::new();
         write::string_u16(&mut buf, "WGS 84").unwrap();
@@ -440,6 +770,13 @@ mod tests {
             SECTION_GRID_RESOURCE,
             SECTION_DATUM,
             SECTION_ELLIPSOID,
+            SECTION_STRING,
+            SECTION_UNIT_OF_MEASURE,
+            SECTION_PRIME_MERIDIAN,
+            SECTION_COORDINATE_SYSTEM,
+            SECTION_CRS_DEFINITION,
+            SECTION_CONVERSION,
+            SECTION_SUPERSESSION,
         ];
         let mut distinct = tags.to_vec();
         distinct.sort_unstable();

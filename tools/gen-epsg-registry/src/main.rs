@@ -1,26 +1,38 @@
-//! Generate projicio's embedded EPSG metadata registry from PROJ's proj.db.
+//! Generate projicio's embedded EPSG registry from PROJ's proj.db.
 //!
-//! Write: `cargo run --manifest-path tools/gen-epsg-registry/Cargo.toml`
-//! Check: `cargo run --manifest-path tools/gen-epsg-registry/Cargo.toml -- --check`
+//! Write: `cargo run --manifest-path tools/gen-epsg-registry/Cargo.toml -- --proj-db PATH`
+//! Check: `cargo run --manifest-path tools/gen-epsg-registry/Cargo.toml -- --check --proj-db PATH`
 //!
 //! Outputs `crates/projicio-core/data/epsg.bin` and `epsg.provenance.json`.
 //!
 //! This package is deliberately outside the projicio workspace so that
-//! `cargo test --all` never builds PROJ or SQLite. It depends on `proj-sys`
-//! with a bundled PROJ build purely to pin the proj.db it reads: the registry
-//! is generated from that build, not from whatever PROJ the machine has
-//! installed.
+//! `cargo test --all` never builds SQLite. The proj.db it reads must come from
+//! the pinned PROJ release, [`PINNED_PROJ_VERSION`].
 
+use flate2::Compression;
+use flate2::write::GzEncoder;
 use projicio_epsg_format::checksum::sha256_hex;
+use projicio_epsg_format::records::{
+    Axis, ConversionRecord, CoordinateSystemKind, CoordinateSystemRecord, CrsDefinitionKind,
+    CrsDefinitionRecord, DatumEnsemble, DatumRecord, EllipsoidRecord, EllipsoidShape,
+    GeodeticCrsType, GridAlternativeRecord, GridFileReference, HelmertParameters, Measure,
+    MeasuredVector, OperationKind, OperationMethod, OperationRecord, OperationStep, ParameterValue,
+    PrimeMeridianRecord, StringIndex, SupersessionRecord, TransformationParameters, UnitKind,
+    UnitRecord,
+};
 use projicio_epsg_format::{
     CRS_KIND_GEOGRAPHIC, CRS_KIND_OTHER, CRS_KIND_PROJECTED, FLAG_DEPRECATED, HEADER_SIZE, MAGIC,
-    NO_CODE, SECTION_CRS, SECTION_DATUM_ALIAS, SECTION_ENTRY_SIZE, SECTION_EXTENT, VERSION, write,
+    NO_CODE, SECTION_CONVERSION, SECTION_COORDINATE_OPERATION, SECTION_COORDINATE_SYSTEM,
+    SECTION_CRS, SECTION_CRS_DEFINITION, SECTION_DATUM, SECTION_DATUM_ALIAS, SECTION_ELLIPSOID,
+    SECTION_ENTRY_SIZE, SECTION_EXTENT, SECTION_GRID_RESOURCE, SECTION_PRIME_MERIDIAN,
+    SECTION_STRING, SECTION_SUPERSESSION, SECTION_UNIT_OF_MEASURE, VERSION, write,
 };
 use rusqlite::types::ValueRef;
-use rusqlite::{Connection, OpenFlags};
+use rusqlite::{Connection, OpenFlags, Row};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 const REGISTRY_FILE: &str = "epsg.bin";
@@ -32,24 +44,30 @@ const GENERATOR_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Decimal places used to round every float before it reaches the blob, so a
 /// value that differs only in the last bits of its decimal expansion cannot
 /// change the output.
-const CANONICAL_FLOAT_DECIMAL_PLACES: usize = 13;
+const CANONICAL_FLOAT_DECIMAL_PLACES: usize = 14;
 
 /// proj.db metadata keys recorded in the provenance file. Both must be
 /// present: without them the artifact cannot be traced to a dataset release.
 const EPSG_VERSION_KEY: &str = "EPSG.VERSION";
 const PROJ_VERSION_KEY: &str = "PROJ.VERSION";
 
+const PINNED_PROJ_VERSION: &str = "9.8.1";
+const PINNED_EPSG_VERSION: &str = "v12.029";
+
 fn main() {
     let args = Args::parse();
+    eprintln!("Reading {}", args.proj_db.display());
 
-    let proj_db = args
-        .proj_db
-        .clone()
-        .unwrap_or_else(|| find_pinned_proj_db().unwrap_or_else(|message| fatal(message)));
-    eprintln!("Reading {}", proj_db.display());
-
-    let connection = open_read_only(&proj_db);
+    let connection = open_read_only(&args.proj_db);
     let source_metadata = read_source_metadata(&connection);
+    let epsg_version = required_metadata(&source_metadata, EPSG_VERSION_KEY);
+    let proj_version = required_metadata(&source_metadata, PROJ_VERSION_KEY);
+    if proj_version != PINNED_PROJ_VERSION || epsg_version != PINNED_EPSG_VERSION {
+        fatal(format!(
+            "{} is from PROJ {proj_version} with EPSG {epsg_version}, the registry is pinned to PROJ {PINNED_PROJ_VERSION} with EPSG {PINNED_EPSG_VERSION}",
+            args.proj_db.display()
+        ));
+    }
     let source_digest = normalized_proj_db_sha256(&connection);
 
     let extent_codes_by_crs = load_extent_codes_by_crs(&connection);
@@ -62,7 +80,10 @@ fn main() {
         &extents,
     );
 
-    let referenced_extents = referenced_extents(&crs_records, &extents);
+    let tables = load_epsg_tables(&connection, &extents);
+    let selection = select_reachable(&tables);
+
+    let referenced_extents = referenced_extents(&crs_records, &selection.extent_codes, &extents);
     let used_datum_codes: BTreeSet<u32> = crs_records
         .iter()
         .map(|record| record.datum_code)
@@ -70,7 +91,17 @@ fn main() {
         .collect();
     let datum_aliases = load_datum_aliases(&connection, &used_datum_codes);
 
-    let sections = [
+    let mut string_use_counts = BTreeMap::new();
+    encode_string_referencing_sections(&selection, &mut |text| {
+        *string_use_counts.entry(text).or_insert(0) += 1;
+        0
+    });
+    let string_index = StringIndex::from_use_counts(&string_use_counts);
+    let string_payload = string_index
+        .encode()
+        .unwrap_or_else(|error| fatal(format!("cannot encode the string table: {error}")));
+
+    let mut sections = vec![
         Section {
             tag: SECTION_CRS,
             record_count: crs_records.len(),
@@ -86,18 +117,60 @@ fn main() {
             record_count: datum_aliases.len(),
             payload: encode_datum_alias_records(&datum_aliases),
         },
+        Section {
+            tag: SECTION_STRING,
+            record_count: string_index.string_count(),
+            payload: string_payload,
+        },
     ];
+    sections.extend(encode_string_referencing_sections(
+        &selection,
+        &mut |text| string_index.index(text),
+    ));
+    sections.extend([
+        Section {
+            tag: SECTION_CRS_DEFINITION,
+            record_count: selection.crs_definitions.len(),
+            payload: encode_each(&selection.crs_definitions, |record, out| record.encode(out)),
+        },
+        Section {
+            tag: SECTION_SUPERSESSION,
+            record_count: selection.supersessions.len(),
+            payload: encode_each(&selection.supersessions, |record, out| record.encode(out)),
+        },
+    ]);
     let blob = assemble(&sections);
+
+    for section in &sections {
+        eprintln!(
+            "section {:>2}: {:>6} records, {:>7} bytes",
+            section.tag,
+            section.record_count,
+            section.payload.len()
+        );
+    }
+    eprintln!(
+        "{REGISTRY_FILE}: {} bytes, {} bytes after gzip -9",
+        blob.len(),
+        gzip_len(&blob)
+    );
 
     let counts = Counts {
         crs: crs_records.len(),
         extents: referenced_extents.len(),
         datum_aliases: datum_aliases.len(),
+        strings: string_index.string_count(),
+        units_of_measure: selection.units.len(),
+        ellipsoids: selection.ellipsoids.len(),
+        prime_meridians: selection.prime_meridians.len(),
+        datums: selection.datums.len(),
+        coordinate_systems: selection.coordinate_systems.len(),
+        crs_definitions: selection.crs_definitions.len(),
+        conversions: selection.conversions.len(),
+        coordinate_operations: selection.operations.len(),
+        grid_alternatives: selection.grid_alternatives.len(),
+        supersessions: selection.supersessions.len(),
     };
-    eprintln!(
-        "CRS: {}, extents: {}, datum aliases: {}",
-        counts.crs, counts.extents, counts.datum_aliases
-    );
 
     let provenance = Provenance {
         schema_version: PROVENANCE_SCHEMA_VERSION,
@@ -112,8 +185,8 @@ fn main() {
         source_database: SourceProvenance {
             kind: "PROJ proj.db",
             file_name: "proj.db",
-            epsg_version: required_metadata(&source_metadata, EPSG_VERSION_KEY),
-            proj_version: required_metadata(&source_metadata, PROJ_VERSION_KEY),
+            epsg_version,
+            proj_version,
             normalized_content_sha256: source_digest,
         },
         output: OutputProvenance {
@@ -150,7 +223,7 @@ fn main() {
             assert_reproducible(&registry_path, &blob);
             assert_reproducible(&provenance_path, &provenance_json);
             eprintln!(
-                "Reproducible from the pinned proj.db: {}, {}",
+                "Reproducible from PROJ {PINNED_PROJ_VERSION}'s proj.db: {}, {}",
                 registry_path.display(),
                 provenance_path.display()
             );
@@ -166,7 +239,7 @@ enum Mode {
 
 struct Args {
     mode: Mode,
-    proj_db: Option<PathBuf>,
+    proj_db: PathBuf,
     out_dir: PathBuf,
 }
 
@@ -205,7 +278,7 @@ impl Args {
                 }
                 "--help" | "-h" => {
                     return Err(
-                        "usage: gen-epsg-registry [--write|--check] [--proj-db PATH] [--out-dir DIR]"
+                        "usage: gen-epsg-registry [--write|--check] --proj-db PATH [--out-dir DIR]"
                             .to_string(),
                     );
                 }
@@ -215,73 +288,12 @@ impl Args {
 
         Ok(Self {
             mode,
-            proj_db,
+            proj_db: proj_db.ok_or_else(|| {
+                format!("--proj-db is required, pass the proj.db of PROJ {PINNED_PROJ_VERSION}")
+            })?,
             out_dir,
         })
     }
-}
-
-/// Directory PROJ's build puts its own cut-down test fixture database in.
-const PROJ_TEST_FIXTURE_DIR: &str = "for_tests";
-
-/// Locate the proj.db that this package's pinned bundled PROJ build produced.
-///
-/// The bundled build drops copies under the package's own target directory, so
-/// several identical files are normal. Distinct contents mean the caller has
-/// to say which one they meant.
-fn find_pinned_proj_db() -> Result<PathBuf, String> {
-    let target_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target");
-    let mut candidates: Vec<PathBuf> = find_files_named(&target_dir, "proj.db")
-        .into_iter()
-        .filter(|path| {
-            !path
-                .components()
-                .any(|component| component.as_os_str() == PROJ_TEST_FIXTURE_DIR)
-        })
-        .collect();
-    candidates.sort();
-    if candidates.is_empty() {
-        return Err(format!(
-            "no proj.db below {}. Build this package first so the bundled PROJ build produces one.",
-            target_dir.display()
-        ));
-    }
-
-    let mut by_digest = BTreeMap::<String, PathBuf>::new();
-    for candidate in &candidates {
-        let connection = open_read_only(candidate);
-        by_digest
-            .entry(normalized_proj_db_sha256(&connection))
-            .or_insert_with(|| candidate.clone());
-    }
-    if by_digest.len() > 1 {
-        let listing = by_digest
-            .into_iter()
-            .map(|(digest, path)| format!("{digest} {}", path.display()))
-            .collect::<Vec<_>>()
-            .join("\n");
-        return Err(format!(
-            "found proj.db files with different contents, pass --proj-db:\n{listing}"
-        ));
-    }
-
-    Ok(candidates.remove(0))
-}
-
-fn find_files_named(dir: &Path, name: &str) -> Vec<PathBuf> {
-    let mut found = Vec::new();
-    let Ok(entries) = fs::read_dir(dir) else {
-        return found;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            found.extend(find_files_named(&path, name));
-        } else if path.file_name().and_then(|value| value.to_str()) == Some(name) {
-            found.push(path);
-        }
-    }
-    found
 }
 
 fn open_read_only(path: &Path) -> Connection {
@@ -481,13 +493,15 @@ fn load_extents(connection: &Connection) -> BTreeMap<u32, ExtentRecord> {
 
 fn referenced_extents(
     crs_records: &[CrsRecord],
+    selected_extent_codes: &BTreeSet<u32>,
     extents: &BTreeMap<u32, ExtentRecord>,
 ) -> Vec<ExtentRecord> {
-    let referenced: BTreeSet<u32> = crs_records
+    let mut referenced: BTreeSet<u32> = crs_records
         .iter()
         .map(|record| record.extent_code)
         .filter(|code| *code != NO_CODE)
         .collect();
+    referenced.extend(selected_extent_codes);
     referenced
         .into_iter()
         .map(|code| extents[&code].clone())
@@ -654,6 +668,1219 @@ fn parse_code(text: &str, kind: &str) -> u32 {
 }
 
 // ---------------------------------------------------------------------------
+// definitions and coordinate operations
+// ---------------------------------------------------------------------------
+
+struct EpsgTables {
+    units: BTreeMap<u32, UnitRecord<'static>>,
+    ellipsoids: BTreeMap<u32, EllipsoidRecord<'static>>,
+    prime_meridians: BTreeMap<u32, PrimeMeridianRecord<'static>>,
+    datums: BTreeMap<u32, DatumRecord<'static>>,
+    coordinate_systems: BTreeMap<u32, CoordinateSystemRecord<'static>>,
+    crs_definitions: BTreeMap<u32, CrsDefinitionRecord>,
+    current_crs_codes: BTreeSet<u32>,
+    conversions: BTreeMap<u32, ConversionRecord<'static>>,
+    current_operations: BTreeMap<u32, OperationRecord<'static>>,
+    grid_alternatives: BTreeMap<&'static str, GridAlternativeRecord<'static>>,
+    supersessions: Vec<SupersessionRecord>,
+}
+
+fn load_epsg_tables(connection: &Connection, extents: &BTreeMap<u32, ExtentRecord>) -> EpsgTables {
+    let usages = |table: &str| load_usages(connection, table, extents);
+
+    let mut crs_definitions = BTreeMap::new();
+    let mut current_crs_codes = BTreeSet::new();
+    let crs_rows = load_geodetic_crs(connection, &usages("geodetic_crs"))
+        .into_iter()
+        .chain(load_projected_crs(connection, &usages("projected_crs")));
+    for crs_row in crs_rows {
+        let code = crs_row.definition.code;
+        if !crs_row.deprecated {
+            current_crs_codes.insert(code);
+        }
+        insert_unique(&mut crs_definitions, code, crs_row.definition, "CRS");
+    }
+
+    let mut current_operations = BTreeMap::new();
+    let operations = [
+        load_helmert_transformations(connection, &usages("helmert_transformation")),
+        load_grid_transformations(connection, &usages("grid_transformation")),
+        load_other_transformations(connection, &usages("other_transformation")),
+        load_concatenated_operations(connection, &usages("concatenated_operation")),
+    ];
+    for operation in operations.into_iter().flatten() {
+        insert_unique(
+            &mut current_operations,
+            operation.code,
+            operation,
+            "coordinate operation",
+        );
+    }
+
+    EpsgTables {
+        units: load_units(connection),
+        ellipsoids: load_ellipsoids(connection),
+        prime_meridians: load_prime_meridians(connection),
+        datums: load_datums(connection),
+        coordinate_systems: load_coordinate_systems(connection),
+        crs_definitions,
+        current_crs_codes,
+        conversions: load_conversions(connection),
+        current_operations,
+        grid_alternatives: load_grid_alternatives(connection),
+        supersessions: load_supersessions(connection),
+    }
+}
+
+fn load_usages(
+    connection: &Connection,
+    table: &str,
+    extents: &BTreeMap<u32, ExtentRecord>,
+) -> BTreeMap<u32, Vec<u32>> {
+    // proj orders domains by scope score, then by usage code, which proj.db
+    // leaves null, so ties keep row order
+    let sql = format!(
+        "SELECT usage.object_code, usage.extent_code
+         FROM usage
+         JOIN scope
+           ON scope.auth_name = usage.scope_auth_name
+          AND scope.code = usage.scope_code
+         WHERE usage.object_table_name = {}
+           AND usage.object_auth_name = 'EPSG'
+           AND usage.extent_auth_name = 'EPSG'
+         ORDER BY usage.object_code,
+                  CASE WHEN scope.scope LIKE '%large scale%' THEN 0 ELSE 1 END,
+                  usage.rowid",
+        quote_string(table)
+    );
+    let mut usages = BTreeMap::<u32, Vec<u32>>::new();
+    for_each_row(connection, &sql, |row| {
+        let extent_code = column_code(row, 1);
+        if extents.contains_key(&extent_code) {
+            usages
+                .entry(column_code(row, 0))
+                .or_default()
+                .push(extent_code);
+        }
+    });
+    usages
+}
+
+fn extent_codes_of(usages: &BTreeMap<u32, Vec<u32>>, code: u32) -> Vec<u32> {
+    usages.get(&code).cloned().unwrap_or_default()
+}
+
+const UNIT_KINDS_BY_NAME: [(&str, UnitKind); 4] = [
+    ("length", UnitKind::Length),
+    ("angle", UnitKind::Angle),
+    ("scale", UnitKind::Scale),
+    ("time", UnitKind::Time),
+];
+
+fn load_units(connection: &Connection) -> BTreeMap<u32, UnitRecord<'static>> {
+    let mut units = BTreeMap::new();
+    for_each_row(
+        connection,
+        "SELECT code, name, type, conv_factor
+         FROM unit_of_measure
+         WHERE auth_name = 'EPSG'",
+        |row| {
+            let unit = UnitRecord {
+                code: column_code(row, 0),
+                name: column_text(row, 1),
+                kind: named(&UNIT_KINDS_BY_NAME, column_text(row, 2), "unit type"),
+                to_si_factor: column_optional_number(row, 3),
+            };
+            insert_unique(&mut units, unit.code, unit, "unit of measure");
+        },
+    );
+    units
+}
+
+fn load_ellipsoids(connection: &Connection) -> BTreeMap<u32, EllipsoidRecord<'static>> {
+    let mut ellipsoids = BTreeMap::new();
+    for_each_row(
+        connection,
+        "SELECT code, name, semi_major_axis, uom_auth_name, uom_code, inv_flattening,
+                semi_minor_axis
+         FROM ellipsoid
+         WHERE auth_name = 'EPSG'",
+        |row| {
+            let code = column_code(row, 0);
+            let shape = match (
+                column_optional_number(row, 5),
+                column_optional_number(row, 6),
+            ) {
+                (Some(inverse_flattening), None) => {
+                    EllipsoidShape::InverseFlattening(inverse_flattening)
+                }
+                (None, Some(semi_minor_axis)) => EllipsoidShape::SemiMinorAxis(semi_minor_axis),
+                _ => fatal(format!(
+                    "EPSG ellipsoid {code} needs exactly one of inverse flattening and semi-minor axis"
+                )),
+            };
+            let ellipsoid = EllipsoidRecord {
+                code,
+                name: column_text(row, 1),
+                semi_major_axis: column_number(row, 2),
+                unit_code: required_epsg_reference(row, 3),
+                shape,
+            };
+            insert_unique(&mut ellipsoids, code, ellipsoid, "ellipsoid");
+        },
+    );
+    ellipsoids
+}
+
+fn load_prime_meridians(connection: &Connection) -> BTreeMap<u32, PrimeMeridianRecord<'static>> {
+    let mut prime_meridians = BTreeMap::new();
+    for_each_row(
+        connection,
+        "SELECT code, name, longitude, uom_auth_name, uom_code
+         FROM prime_meridian
+         WHERE auth_name = 'EPSG'",
+        |row| {
+            let prime_meridian = PrimeMeridianRecord {
+                code: column_code(row, 0),
+                name: column_text(row, 1),
+                longitude: column_number(row, 2),
+                unit_code: required_epsg_reference(row, 3),
+            };
+            insert_unique(
+                &mut prime_meridians,
+                prime_meridian.code,
+                prime_meridian,
+                "prime meridian",
+            );
+        },
+    );
+    prime_meridians
+}
+
+fn load_datums(connection: &Connection) -> BTreeMap<u32, DatumRecord<'static>> {
+    let mut members = BTreeMap::<u32, Vec<u32>>::new();
+    for_each_row(
+        connection,
+        "SELECT ensemble_code, member_auth_name, member_code
+         FROM geodetic_datum_ensemble_member
+         WHERE ensemble_auth_name = 'EPSG'
+         ORDER BY ensemble_code, sequence",
+        |row| {
+            members
+                .entry(column_code(row, 0))
+                .or_default()
+                .push(required_epsg_reference(row, 1));
+        },
+    );
+
+    let mut datums = BTreeMap::new();
+    for_each_row(
+        connection,
+        "SELECT code, name, ellipsoid_auth_name, ellipsoid_code, prime_meridian_auth_name,
+                prime_meridian_code, frame_reference_epoch, ensemble_accuracy
+         FROM geodetic_datum
+         WHERE auth_name = 'EPSG'",
+        |row| {
+            let code = column_code(row, 0);
+            let ensemble = match (column_optional_number(row, 7), members.remove(&code)) {
+                (Some(accuracy), Some(member_codes)) => Some(DatumEnsemble {
+                    accuracy,
+                    member_codes,
+                }),
+                (None, None) => None,
+                _ => fatal(format!(
+                    "EPSG datum {code} needs both an ensemble accuracy and ensemble members, or neither"
+                )),
+            };
+            let datum = DatumRecord {
+                code,
+                name: column_text(row, 1),
+                ellipsoid_code: required_epsg_reference(row, 2),
+                prime_meridian_code: required_epsg_reference(row, 4),
+                frame_reference_epoch: column_optional_number(row, 6),
+                ensemble,
+            };
+            insert_unique(&mut datums, code, datum, "datum");
+        },
+    );
+    datums
+}
+
+const COORDINATE_SYSTEM_KINDS_BY_NAME: [(&str, CoordinateSystemKind); 2] = [
+    ("Cartesian", CoordinateSystemKind::Cartesian),
+    ("ellipsoidal", CoordinateSystemKind::Ellipsoidal),
+];
+
+fn load_coordinate_systems(
+    connection: &Connection,
+) -> BTreeMap<u32, CoordinateSystemRecord<'static>> {
+    let mut coordinate_systems = BTreeMap::<u32, CoordinateSystemRecord<'static>>::new();
+    let mut dimensions = BTreeMap::new();
+    for_each_row(
+        connection,
+        "SELECT coordinate_system.code, coordinate_system.type, coordinate_system.dimension,
+                axis.coordinate_system_order, axis.name, axis.abbrev, axis.orientation,
+                axis.uom_auth_name, axis.uom_code
+         FROM coordinate_system
+         JOIN axis
+           ON axis.coordinate_system_auth_name = coordinate_system.auth_name
+          AND axis.coordinate_system_code = coordinate_system.code
+         WHERE coordinate_system.auth_name = 'EPSG'
+           AND coordinate_system.type IN ('Cartesian', 'ellipsoidal')
+         ORDER BY coordinate_system.code, axis.coordinate_system_order",
+        |row| {
+            let code = column_code(row, 0);
+            dimensions.insert(code, column_usize(row, 2));
+            let coordinate_system =
+                coordinate_systems
+                    .entry(code)
+                    .or_insert_with(|| CoordinateSystemRecord {
+                        code,
+                        kind: named(
+                            &COORDINATE_SYSTEM_KINDS_BY_NAME,
+                            column_text(row, 1),
+                            "coordinate system type",
+                        ),
+                        axes: Vec::new(),
+                    });
+            if column_usize(row, 3) != coordinate_system.axes.len() + 1 {
+                fatal(format!("EPSG coordinate system {code} skips an axis order"));
+            }
+            coordinate_system.axes.push(Axis {
+                name: column_text(row, 4),
+                abbreviation: column_text(row, 5),
+                orientation: column_text(row, 6),
+                unit_code: required_epsg_reference(row, 7),
+            });
+        },
+    );
+    for (code, coordinate_system) in &coordinate_systems {
+        if dimensions[code] != coordinate_system.axes.len() {
+            fatal(format!(
+                "EPSG coordinate system {code} has {} axes for dimension {}",
+                coordinate_system.axes.len(),
+                dimensions[code]
+            ));
+        }
+    }
+    coordinate_systems
+}
+
+struct CrsRow {
+    definition: CrsDefinitionRecord,
+    deprecated: bool,
+}
+
+const GEODETIC_CRS_TYPES_BY_NAME: [(&str, GeodeticCrsType); 3] = [
+    ("geographic 2D", GeodeticCrsType::Geographic2D),
+    ("geographic 3D", GeodeticCrsType::Geographic3D),
+    ("geocentric", GeodeticCrsType::Geocentric),
+];
+
+fn load_geodetic_crs(connection: &Connection, usages: &BTreeMap<u32, Vec<u32>>) -> Vec<CrsRow> {
+    let mut rows = Vec::new();
+    for_each_row(
+        connection,
+        "SELECT code, type, coordinate_system_auth_name, coordinate_system_code,
+                datum_auth_name, datum_code, deprecated
+         FROM geodetic_crs
+         WHERE auth_name = 'EPSG'",
+        |row| {
+            let code = column_code(row, 0);
+            let definition = CrsDefinitionRecord {
+                code,
+                kind: CrsDefinitionKind::Geodetic {
+                    geodetic_type: named(
+                        &GEODETIC_CRS_TYPES_BY_NAME,
+                        column_text(row, 1),
+                        "geodetic CRS type",
+                    ),
+                    datum_code: required_epsg_reference(row, 4),
+                },
+                coordinate_system_code: required_epsg_reference(row, 2),
+                extent_codes: extent_codes_of(usages, code),
+            };
+            rows.push(CrsRow {
+                definition,
+                deprecated: column_flag(row, 6),
+            });
+        },
+    );
+    rows
+}
+
+fn load_projected_crs(connection: &Connection, usages: &BTreeMap<u32, Vec<u32>>) -> Vec<CrsRow> {
+    let mut rows = Vec::new();
+    for_each_row(
+        connection,
+        "SELECT code, coordinate_system_auth_name, coordinate_system_code,
+                geodetic_crs_auth_name, geodetic_crs_code, conversion_auth_name,
+                conversion_code, deprecated
+         FROM projected_crs
+         WHERE auth_name = 'EPSG'",
+        |row| {
+            let code = column_code(row, 0);
+            let definition = CrsDefinitionRecord {
+                code,
+                kind: CrsDefinitionKind::Projected {
+                    base_crs_code: required_epsg_reference(row, 3),
+                    conversion_code: required_epsg_reference(row, 5),
+                },
+                coordinate_system_code: required_epsg_reference(row, 1),
+                extent_codes: extent_codes_of(usages, code),
+            };
+            rows.push(CrsRow {
+                definition,
+                deprecated: column_flag(row, 7),
+            });
+        },
+    );
+    rows
+}
+
+const PARAMETER_COLUMN_COUNT: usize = 6;
+const CONVERSION_PARAMETER_SLOTS: usize = 7;
+const GRID_TRANSFORMATION_PARAMETER_SLOTS: usize = 2;
+const OTHER_TRANSFORMATION_PARAMETER_SLOTS: usize = 9;
+
+fn parameter_columns(slot_count: usize) -> String {
+    (1..=slot_count)
+        .map(|slot| {
+            format!(
+                "param{slot}_auth_name, param{slot}_code, param{slot}_name, param{slot}_value, \
+                 param{slot}_uom_auth_name, param{slot}_uom_code"
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn read_parameters(
+    row: &Row<'_>,
+    first_index: usize,
+    slot_count: usize,
+) -> Vec<ParameterValue<'static>> {
+    (0..slot_count)
+        .filter_map(|slot| {
+            let index = first_index + slot * PARAMETER_COLUMN_COUNT;
+            Some(ParameterValue {
+                code: epsg_reference(row, index)?,
+                name: column_text(row, index + 2),
+                value: column_number(row, index + 3),
+                unit_code: required_epsg_reference(row, index + 4),
+            })
+        })
+        .collect()
+}
+
+fn read_method(row: &Row<'_>, authority_index: usize) -> OperationMethod<'static> {
+    OperationMethod {
+        code: required_epsg_reference(row, authority_index),
+        name: column_text(row, authority_index + 2),
+    }
+}
+
+fn load_conversions(connection: &Connection) -> BTreeMap<u32, ConversionRecord<'static>> {
+    let sql = format!(
+        "SELECT code, name, method_auth_name, method_code, method_name, {}
+         FROM conversion
+         WHERE auth_name = 'EPSG'",
+        parameter_columns(CONVERSION_PARAMETER_SLOTS)
+    );
+    let mut conversions = BTreeMap::new();
+    for_each_row(connection, &sql, |row| {
+        let conversion = ConversionRecord {
+            code: column_code(row, 0),
+            name: column_text(row, 1),
+            method: read_method(row, 2),
+            parameters: read_parameters(row, 5, CONVERSION_PARAMETER_SLOTS),
+        };
+        insert_unique(&mut conversions, conversion.code, conversion, "conversion");
+    });
+    conversions
+}
+
+const OPERATION_COLUMNS: &str = "code, name, source_crs_auth_name, source_crs_code, \
+     target_crs_auth_name, target_crs_code, accuracy";
+
+fn read_operation(
+    row: &Row<'_>,
+    usages: &BTreeMap<u32, Vec<u32>>,
+    kind: OperationKind<'static>,
+) -> OperationRecord<'static> {
+    let code = column_code(row, 0);
+    OperationRecord {
+        code,
+        name: column_text(row, 1),
+        source_crs_code: required_epsg_reference(row, 2),
+        target_crs_code: required_epsg_reference(row, 4),
+        accuracy: column_optional_number(row, 6),
+        extent_codes: extent_codes_of(usages, code),
+        kind,
+    }
+}
+
+fn read_optional_vector(row: &Row<'_>, first_index: usize) -> Option<MeasuredVector> {
+    let values = [
+        column_optional_number(row, first_index),
+        column_optional_number(row, first_index + 1),
+        column_optional_number(row, first_index + 2),
+    ];
+    match (values, epsg_reference(row, first_index + 3)) {
+        ([Some(x), Some(y), Some(z)], Some(unit_code)) => Some(MeasuredVector {
+            values: [x, y, z],
+            unit_code,
+        }),
+        ([None, None, None], None) => None,
+        _ => fatal(format!(
+            "proj.db {} is set for only some of its axes or has no unit",
+            column_name(row, first_index)
+        )),
+    }
+}
+
+fn read_optional_measure(row: &Row<'_>, first_index: usize) -> Option<Measure> {
+    match (
+        column_optional_number(row, first_index),
+        epsg_reference(row, first_index + 1),
+    ) {
+        (Some(value), Some(unit_code)) => Some(Measure { value, unit_code }),
+        (None, None) => None,
+        _ => fatal(format!(
+            "proj.db {} and its unit are not both set",
+            column_name(row, first_index)
+        )),
+    }
+}
+
+fn load_helmert_transformations(
+    connection: &Connection,
+    usages: &BTreeMap<u32, Vec<u32>>,
+) -> Vec<OperationRecord<'static>> {
+    let sql = format!(
+        "SELECT {OPERATION_COLUMNS}, method_auth_name, method_code, method_name,
+                tx, ty, tz, translation_uom_auth_name, translation_uom_code,
+                rx, ry, rz, rotation_uom_auth_name, rotation_uom_code,
+                scale_difference, scale_difference_uom_auth_name, scale_difference_uom_code,
+                rate_tx, rate_ty, rate_tz, rate_translation_uom_auth_name,
+                rate_translation_uom_code,
+                rate_rx, rate_ry, rate_rz, rate_rotation_uom_auth_name, rate_rotation_uom_code,
+                rate_scale_difference, rate_scale_difference_uom_auth_name,
+                rate_scale_difference_uom_code,
+                epoch, epoch_uom_auth_name, epoch_uom_code,
+                px, py, pz, pivot_uom_auth_name, pivot_uom_code
+         FROM helmert_transformation
+         WHERE auth_name = 'EPSG' AND deprecated = 0"
+    );
+    let mut operations = Vec::new();
+    for_each_row(connection, &sql, |row| {
+        let translation = read_optional_vector(row, 10).unwrap_or_else(|| {
+            fatal(format!(
+                "EPSG Helmert transformation {} has no translation",
+                column_code(row, 0)
+            ))
+        });
+        let parameters = HelmertParameters {
+            method: read_method(row, 7),
+            translation,
+            rotation: read_optional_vector(row, 15),
+            scale_difference: read_optional_measure(row, 20),
+            rate_translation: read_optional_vector(row, 23),
+            rate_rotation: read_optional_vector(row, 28),
+            rate_scale_difference: read_optional_measure(row, 33),
+            epoch: read_optional_measure(row, 36),
+            pivot: read_optional_vector(row, 39),
+        };
+        operations.push(read_operation(
+            row,
+            usages,
+            OperationKind::HelmertTransformation(Box::new(parameters)),
+        ));
+    });
+    operations
+}
+
+fn read_optional_grid(row: &Row<'_>, first_index: usize) -> Option<GridFileReference<'static>> {
+    Some(GridFileReference {
+        parameter_code: epsg_reference(row, first_index)?,
+        parameter_name: column_text(row, first_index + 2),
+        file_name: column_text(row, first_index + 3),
+    })
+}
+
+fn load_grid_transformations(
+    connection: &Connection,
+    usages: &BTreeMap<u32, Vec<u32>>,
+) -> Vec<OperationRecord<'static>> {
+    let sql = format!(
+        "SELECT {OPERATION_COLUMNS}, method_auth_name, method_code, method_name,
+                grid_param_auth_name, grid_param_code, grid_param_name, grid_name,
+                grid2_param_auth_name, grid2_param_code, grid2_param_name, grid2_name,
+                interpolation_crs_auth_name, interpolation_crs_code, {}
+         FROM grid_transformation
+         WHERE auth_name = 'EPSG' AND deprecated = 0",
+        parameter_columns(GRID_TRANSFORMATION_PARAMETER_SLOTS)
+    );
+    let mut operations = Vec::new();
+    for_each_row(connection, &sql, |row| {
+        let parameters = TransformationParameters {
+            method: read_method(row, 7),
+            parameters: read_parameters(row, 20, GRID_TRANSFORMATION_PARAMETER_SLOTS),
+            grids: [read_optional_grid(row, 10), read_optional_grid(row, 14)]
+                .into_iter()
+                .flatten()
+                .collect(),
+            interpolation_crs_code: epsg_reference(row, 18),
+        };
+        operations.push(read_operation(
+            row,
+            usages,
+            OperationKind::GridTransformation(parameters),
+        ));
+    });
+    operations
+}
+
+fn load_other_transformations(
+    connection: &Connection,
+    usages: &BTreeMap<u32, Vec<u32>>,
+) -> Vec<OperationRecord<'static>> {
+    let sql = format!(
+        "SELECT {OPERATION_COLUMNS}, method_auth_name, method_code, method_name,
+                grid_param_auth_name, grid_param_code, grid_param_name, grid_name,
+                interpolation_crs_auth_name, interpolation_crs_code, {}
+         FROM other_transformation
+         WHERE auth_name = 'EPSG' AND deprecated = 0",
+        parameter_columns(OTHER_TRANSFORMATION_PARAMETER_SLOTS)
+    );
+    let mut operations = Vec::new();
+    for_each_row(connection, &sql, |row| {
+        let parameters = TransformationParameters {
+            method: read_method(row, 7),
+            parameters: read_parameters(row, 16, OTHER_TRANSFORMATION_PARAMETER_SLOTS),
+            grids: read_optional_grid(row, 10).into_iter().collect(),
+            interpolation_crs_code: epsg_reference(row, 14),
+        };
+        operations.push(read_operation(
+            row,
+            usages,
+            OperationKind::OtherTransformation(parameters),
+        ));
+    });
+    operations
+}
+
+fn load_concatenated_operations(
+    connection: &Connection,
+    usages: &BTreeMap<u32, Vec<u32>>,
+) -> Vec<OperationRecord<'static>> {
+    let mut steps_by_operation = BTreeMap::<u32, Vec<OperationStep>>::new();
+    for_each_row(
+        connection,
+        "SELECT step.operation_code, step.step_auth_name, step.step_code,
+                step.step_direction, step_object.type
+         FROM concatenated_operation_step step
+         LEFT JOIN coordinate_operation_with_conversion_view step_object
+           ON step_object.auth_name = step.step_auth_name
+          AND step_object.code = step.step_code
+         WHERE step.operation_auth_name = 'EPSG'
+         ORDER BY step.operation_code, step.step_number",
+        |row| {
+            let operation_code = column_code(row, 0);
+            let step_code = required_epsg_reference(row, 1);
+            if column_optional_text(row, 3).is_some() {
+                fatal(format!(
+                    "EPSG concatenated operation {operation_code} gives step {step_code} a direction, which the registry does not store"
+                ));
+            }
+            let step = match column_optional_text(row, 4) {
+                Some("conversion") => OperationStep::Conversion(step_code),
+                Some(_) => OperationStep::Operation(step_code),
+                None => fatal(format!(
+                    "EPSG concatenated operation {operation_code} names step {step_code}, which proj.db does not have"
+                )),
+            };
+            steps_by_operation
+                .entry(operation_code)
+                .or_default()
+                .push(step);
+        },
+    );
+
+    let sql = format!(
+        "SELECT {OPERATION_COLUMNS}
+         FROM concatenated_operation
+         WHERE auth_name = 'EPSG' AND deprecated = 0"
+    );
+    let mut operations = Vec::new();
+    for_each_row(connection, &sql, |row| {
+        let code = column_code(row, 0);
+        let steps = steps_by_operation
+            .remove(&code)
+            .unwrap_or_else(|| fatal(format!("EPSG concatenated operation {code} has no steps")));
+        operations.push(read_operation(
+            row,
+            usages,
+            OperationKind::ConcatenatedOperation(steps),
+        ));
+    });
+    operations
+}
+
+fn load_grid_alternatives(
+    connection: &Connection,
+) -> BTreeMap<&'static str, GridAlternativeRecord<'static>> {
+    let mut alternatives = BTreeMap::new();
+    for_each_row(
+        connection,
+        "SELECT original_grid_name, proj_grid_name, old_proj_grid_name, proj_grid_format,
+                proj_method, inverse_direction, url, open_license, direct_download
+         FROM grid_alternatives",
+        |row| {
+            let alternative = GridAlternativeRecord {
+                original_name: column_text(row, 0),
+                // proj.db stores an empty name for grids the cdn does not carry
+                proj_grid_name: Some(column_text(row, 1)).filter(|name| !name.is_empty()),
+                old_proj_grid_name: column_optional_text(row, 2),
+                format: column_text(row, 3),
+                proj_method: column_text(row, 4),
+                inverse_direction: column_flag(row, 5),
+                url: column_optional_text(row, 6),
+                open_license: column_optional_flag(row, 7) == Some(true),
+                direct_download: column_optional_flag(row, 8) == Some(true),
+            };
+            insert_unique(
+                &mut alternatives,
+                alternative.original_name,
+                alternative,
+                "grid alternative",
+            );
+        },
+    );
+    alternatives
+}
+
+fn load_supersessions(connection: &Connection) -> Vec<SupersessionRecord> {
+    let mut supersessions = Vec::new();
+    for_each_row(
+        connection,
+        "SELECT superseded_code, replacement_code, same_source_target_crs
+         FROM supersession
+         WHERE superseded_auth_name = 'EPSG' AND replacement_auth_name = 'EPSG'",
+        |row| {
+            supersessions.push(SupersessionRecord {
+                superseded_code: column_code(row, 0),
+                replacement_code: column_code(row, 1),
+                same_source_target_crs: column_flag(row, 2),
+            });
+        },
+    );
+    supersessions.sort_by_key(|supersession| {
+        (
+            supersession.superseded_code,
+            supersession.replacement_code,
+            supersession.same_source_target_crs,
+        )
+    });
+    supersessions.dedup();
+    supersessions
+}
+
+struct Selection<'t> {
+    units: Vec<&'t UnitRecord<'static>>,
+    ellipsoids: Vec<&'t EllipsoidRecord<'static>>,
+    prime_meridians: Vec<&'t PrimeMeridianRecord<'static>>,
+    datums: Vec<&'t DatumRecord<'static>>,
+    coordinate_systems: Vec<&'t CoordinateSystemRecord<'static>>,
+    crs_definitions: Vec<&'t CrsDefinitionRecord>,
+    conversions: Vec<&'t ConversionRecord<'static>>,
+    operations: Vec<&'t OperationRecord<'static>>,
+    grid_alternatives: Vec<&'t GridAlternativeRecord<'static>>,
+    supersessions: Vec<&'t SupersessionRecord>,
+    extent_codes: BTreeSet<u32>,
+}
+
+fn select_reachable(tables: &EpsgTables) -> Selection<'_> {
+    let is_geodetic = |code: u32| {
+        matches!(
+            tables
+                .crs_definitions
+                .get(&code)
+                .map(|definition| definition.kind),
+            Some(CrsDefinitionKind::Geodetic { .. })
+        )
+    };
+    let mut pending: Vec<u32> = tables
+        .current_operations
+        .values()
+        .filter(|operation| {
+            is_geodetic(operation.source_crs_code) && is_geodetic(operation.target_crs_code)
+        })
+        .map(|operation| operation.code)
+        .collect();
+    let mut operation_codes = BTreeSet::new();
+    let mut conversion_codes = BTreeSet::new();
+    while let Some(code) = pending.pop() {
+        if !operation_codes.insert(code) {
+            continue;
+        }
+        let operation = lookup(
+            &tables.current_operations,
+            code,
+            "current coordinate operation",
+        );
+        if let OperationKind::ConcatenatedOperation(steps) = &operation.kind {
+            for step in steps {
+                match *step {
+                    OperationStep::Operation(step_code) => pending.push(step_code),
+                    OperationStep::Conversion(step_code) => {
+                        conversion_codes.insert(step_code);
+                    }
+                }
+            }
+        }
+    }
+    let operations = lookup_all(
+        &tables.current_operations,
+        &operation_codes,
+        "current coordinate operation",
+    );
+
+    let mut crs_codes = tables.current_crs_codes.clone();
+    for operation in &operations {
+        crs_codes.extend([operation.source_crs_code, operation.target_crs_code]);
+        crs_codes.extend(
+            transformation_parameters(operation)
+                .and_then(|parameters| parameters.interpolation_crs_code),
+        );
+    }
+    let mut base_crs_codes = Vec::new();
+    for code in &crs_codes {
+        if let CrsDefinitionKind::Projected {
+            base_crs_code,
+            conversion_code,
+        } = lookup(&tables.crs_definitions, *code, "CRS").kind
+        {
+            base_crs_codes.push(base_crs_code);
+            conversion_codes.insert(conversion_code);
+        }
+    }
+    crs_codes.extend(base_crs_codes);
+    let crs_definitions = lookup_all(&tables.crs_definitions, &crs_codes, "CRS");
+
+    let mut datum_codes: BTreeSet<u32> = crs_definitions
+        .iter()
+        .filter_map(|definition| match definition.kind {
+            CrsDefinitionKind::Geodetic { datum_code, .. } => Some(datum_code),
+            CrsDefinitionKind::Projected { .. } => None,
+        })
+        .collect();
+    let member_codes: Vec<u32> = datum_codes
+        .iter()
+        .filter_map(|code| lookup(&tables.datums, *code, "datum").ensemble.as_ref())
+        .flat_map(|ensemble| ensemble.member_codes.iter().copied())
+        .collect();
+    datum_codes.extend(member_codes);
+    let datums = lookup_all(&tables.datums, &datum_codes, "datum");
+    let ellipsoids = lookup_all(
+        &tables.ellipsoids,
+        &datums.iter().map(|datum| datum.ellipsoid_code).collect(),
+        "ellipsoid",
+    );
+    let prime_meridians = lookup_all(
+        &tables.prime_meridians,
+        &datums
+            .iter()
+            .map(|datum| datum.prime_meridian_code)
+            .collect(),
+        "prime meridian",
+    );
+    let coordinate_systems = lookup_all(
+        &tables.coordinate_systems,
+        &crs_definitions
+            .iter()
+            .map(|definition| definition.coordinate_system_code)
+            .collect(),
+        "coordinate system",
+    );
+    let conversions = lookup_all(&tables.conversions, &conversion_codes, "conversion");
+
+    let mut unit_codes = BTreeSet::new();
+    unit_codes.extend(ellipsoids.iter().map(|ellipsoid| ellipsoid.unit_code));
+    unit_codes.extend(prime_meridians.iter().map(|meridian| meridian.unit_code));
+    unit_codes.extend(
+        coordinate_systems
+            .iter()
+            .flat_map(|system| system.axes.iter().map(|axis| axis.unit_code)),
+    );
+    unit_codes.extend(conversions.iter().flat_map(|conversion| {
+        conversion
+            .parameters
+            .iter()
+            .map(|parameter| parameter.unit_code)
+    }));
+    unit_codes.extend(
+        operations
+            .iter()
+            .flat_map(|operation| operation_unit_codes(operation)),
+    );
+    let units = lookup_all(&tables.units, &unit_codes, "unit of measure");
+
+    let grid_file_names: BTreeSet<&str> = operations
+        .iter()
+        .filter_map(|operation| transformation_parameters(operation))
+        .flat_map(|parameters| parameters.grids.iter().map(|grid| grid.file_name))
+        .collect();
+    let grid_alternatives = grid_file_names
+        .into_iter()
+        .filter_map(|name| tables.grid_alternatives.get(name))
+        .collect();
+
+    let extent_codes = crs_definitions
+        .iter()
+        .flat_map(|definition| definition.extent_codes.iter().copied())
+        .chain(
+            operations
+                .iter()
+                .flat_map(|operation| operation.extent_codes.iter().copied()),
+        )
+        .collect();
+
+    let supersessions = tables
+        .supersessions
+        .iter()
+        .filter(|supersession| operation_codes.contains(&supersession.superseded_code))
+        .collect();
+
+    Selection {
+        units,
+        ellipsoids,
+        prime_meridians,
+        datums,
+        coordinate_systems,
+        crs_definitions,
+        conversions,
+        operations,
+        grid_alternatives,
+        supersessions,
+        extent_codes,
+    }
+}
+
+fn transformation_parameters<'r>(
+    operation: &'r OperationRecord<'static>,
+) -> Option<&'r TransformationParameters<'static>> {
+    match &operation.kind {
+        OperationKind::GridTransformation(parameters)
+        | OperationKind::OtherTransformation(parameters) => Some(parameters),
+        OperationKind::HelmertTransformation(_) | OperationKind::ConcatenatedOperation(_) => None,
+    }
+}
+
+fn operation_unit_codes(operation: &OperationRecord<'static>) -> Vec<u32> {
+    match &operation.kind {
+        OperationKind::HelmertTransformation(helmert) => {
+            let vectors = [
+                Some(helmert.translation),
+                helmert.rotation,
+                helmert.rate_translation,
+                helmert.rate_rotation,
+                helmert.pivot,
+            ];
+            let measures = [
+                helmert.scale_difference,
+                helmert.rate_scale_difference,
+                helmert.epoch,
+            ];
+            vectors
+                .iter()
+                .flatten()
+                .map(|vector| vector.unit_code)
+                .chain(measures.iter().flatten().map(|measure| measure.unit_code))
+                .collect()
+        }
+        OperationKind::GridTransformation(parameters)
+        | OperationKind::OtherTransformation(parameters) => parameters
+            .parameters
+            .iter()
+            .map(|parameter| parameter.unit_code)
+            .collect(),
+        OperationKind::ConcatenatedOperation(_) => Vec::new(),
+    }
+}
+
+fn lookup<'t, K: Ord + Copy + std::fmt::Display, T>(
+    records: &'t BTreeMap<K, T>,
+    key: K,
+    kind: &str,
+) -> &'t T {
+    records.get(&key).unwrap_or_else(|| {
+        fatal(format!(
+            "EPSG {kind} {key} is referenced from the registry's scope but proj.db has none"
+        ))
+    })
+}
+
+fn lookup_all<'t, T>(
+    records: &'t BTreeMap<u32, T>,
+    codes: &BTreeSet<u32>,
+    kind: &str,
+) -> Vec<&'t T> {
+    codes
+        .iter()
+        .map(|code| lookup(records, *code, kind))
+        .collect()
+}
+
+fn insert_unique<K: Ord + Copy + std::fmt::Display, T>(
+    records: &mut BTreeMap<K, T>,
+    key: K,
+    record: T,
+    kind: &str,
+) {
+    if records.insert(key, record).is_some() {
+        fatal(format!("EPSG {kind} {key} appears twice in proj.db"));
+    }
+}
+
+fn named<T: Copy>(values_by_name: &[(&str, T)], name: &str, kind: &str) -> T {
+    values_by_name
+        .iter()
+        .find(|(candidate, _)| *candidate == name)
+        .map(|(_, value)| *value)
+        .unwrap_or_else(|| fatal(format!("unknown {kind} {name:?} in proj.db")))
+}
+
+fn encode_each<T>(records: &[&T], mut encode: impl FnMut(&T, &mut Vec<u8>)) -> Vec<u8> {
+    let mut payload = Vec::new();
+    for record in records {
+        encode(record, &mut payload);
+    }
+    payload
+}
+
+fn encode_string_referencing_sections(
+    selection: &Selection<'_>,
+    strings: &mut impl FnMut(&'static str) -> u32,
+) -> Vec<Section> {
+    vec![
+        Section {
+            tag: SECTION_UNIT_OF_MEASURE,
+            record_count: selection.units.len(),
+            payload: encode_each(&selection.units, |record, out| record.encode(out, strings)),
+        },
+        Section {
+            tag: SECTION_ELLIPSOID,
+            record_count: selection.ellipsoids.len(),
+            payload: encode_each(&selection.ellipsoids, |record, out| {
+                record.encode(out, strings)
+            }),
+        },
+        Section {
+            tag: SECTION_PRIME_MERIDIAN,
+            record_count: selection.prime_meridians.len(),
+            payload: encode_each(&selection.prime_meridians, |record, out| {
+                record.encode(out, strings)
+            }),
+        },
+        Section {
+            tag: SECTION_DATUM,
+            record_count: selection.datums.len(),
+            payload: encode_each(&selection.datums, |record, out| record.encode(out, strings)),
+        },
+        Section {
+            tag: SECTION_COORDINATE_SYSTEM,
+            record_count: selection.coordinate_systems.len(),
+            payload: encode_each(&selection.coordinate_systems, |record, out| {
+                record.encode(out, strings)
+            }),
+        },
+        Section {
+            tag: SECTION_CONVERSION,
+            record_count: selection.conversions.len(),
+            payload: encode_each(&selection.conversions, |record, out| {
+                record.encode(out, strings)
+            }),
+        },
+        Section {
+            tag: SECTION_COORDINATE_OPERATION,
+            record_count: selection.operations.len(),
+            payload: encode_each(&selection.operations, |record, out| {
+                record.encode(out, strings)
+            }),
+        },
+        Section {
+            tag: SECTION_GRID_RESOURCE,
+            record_count: selection.grid_alternatives.len(),
+            payload: encode_each(&selection.grid_alternatives, |record, out| {
+                record.encode(out, strings)
+            }),
+        },
+    ]
+}
+
+fn gzip_len(blob: &[u8]) -> usize {
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::best());
+    encoder
+        .write_all(blob)
+        .unwrap_or_else(|error| fatal(format!("gzip failed: {error}")));
+    encoder
+        .finish()
+        .unwrap_or_else(|error| fatal(format!("gzip failed: {error}")))
+        .len()
+}
+
+// ---------------------------------------------------------------------------
+// proj.db columns
+// ---------------------------------------------------------------------------
+
+fn for_each_row(connection: &Connection, sql: &str, mut visit: impl FnMut(&Row<'_>)) {
+    let mut statement = prepare(connection, sql);
+    let mut rows = statement
+        .query([])
+        .unwrap_or_else(|error| fatal(format!("failed to run `{sql}`: {error}")));
+    while let Some(row) = rows
+        .next()
+        .unwrap_or_else(|error| fatal(format!("failed to read `{sql}`: {error}")))
+    {
+        visit(row);
+    }
+}
+
+fn column_name(row: &Row<'_>, index: usize) -> String {
+    row.as_ref()
+        .column_name(index)
+        .map_or_else(|_| format!("column {index}"), str::to_string)
+}
+
+fn column_value<'r>(row: &'r Row<'_>, index: usize) -> ValueRef<'r> {
+    row.get_ref(index).unwrap_or_else(|error| {
+        fatal(format!(
+            "failed to read {}: {error}",
+            column_name(row, index)
+        ))
+    })
+}
+
+fn required<T>(value: Option<T>, row: &Row<'_>, index: usize) -> T {
+    value.unwrap_or_else(|| fatal(format!("proj.db {} is null", column_name(row, index))))
+}
+
+fn column_optional_text(row: &Row<'_>, index: usize) -> Option<&'static str> {
+    match column_value(row, index) {
+        ValueRef::Null => None,
+        ValueRef::Text(bytes) => {
+            let text: &'static str = String::from_utf8(bytes.to_vec())
+                .unwrap_or_else(|_| {
+                    fatal(format!("proj.db {} is not UTF-8", column_name(row, index)))
+                })
+                .leak();
+            Some(text)
+        }
+        _ => fatal(format!("proj.db {} is not text", column_name(row, index))),
+    }
+}
+
+fn column_text(row: &Row<'_>, index: usize) -> &'static str {
+    required(column_optional_text(row, index), row, index)
+}
+
+fn column_optional_number(row: &Row<'_>, index: usize) -> Option<f64> {
+    match column_value(row, index) {
+        ValueRef::Null => None,
+        ValueRef::Integer(value) => Some(canonical_f64(value as f64)),
+        ValueRef::Real(value) => Some(canonical_f64(value)),
+        _ => fatal(format!(
+            "proj.db {} is not a number",
+            column_name(row, index)
+        )),
+    }
+}
+
+fn column_number(row: &Row<'_>, index: usize) -> f64 {
+    required(column_optional_number(row, index), row, index)
+}
+
+fn column_optional_code(row: &Row<'_>, index: usize) -> Option<u32> {
+    match column_value(row, index) {
+        ValueRef::Null => None,
+        ValueRef::Integer(value) => Some(
+            u32::try_from(value)
+                .ok()
+                .filter(|code| *code != NO_CODE)
+                .unwrap_or_else(|| {
+                    fatal(format!(
+                        "proj.db {} holds {value}, which is not an EPSG code",
+                        column_name(row, index)
+                    ))
+                }),
+        ),
+        ValueRef::Text(bytes) => {
+            let text = std::str::from_utf8(bytes).unwrap_or_else(|_| {
+                fatal(format!("proj.db {} is not UTF-8", column_name(row, index)))
+            });
+            Some(parse_code(text, &column_name(row, index)))
+        }
+        _ => fatal(format!("proj.db {} is not a code", column_name(row, index))),
+    }
+}
+
+fn column_code(row: &Row<'_>, index: usize) -> u32 {
+    required(column_optional_code(row, index), row, index)
+}
+
+fn column_usize(row: &Row<'_>, index: usize) -> usize {
+    match column_value(row, index) {
+        ValueRef::Integer(value) => usize::try_from(value).unwrap_or_else(|_| {
+            fatal(format!(
+                "proj.db {} holds {value}, which is not a count",
+                column_name(row, index)
+            ))
+        }),
+        _ => fatal(format!(
+            "proj.db {} is not an integer",
+            column_name(row, index)
+        )),
+    }
+}
+
+fn column_optional_flag(row: &Row<'_>, index: usize) -> Option<bool> {
+    match column_value(row, index) {
+        ValueRef::Null => None,
+        ValueRef::Integer(0) => Some(false),
+        ValueRef::Integer(1) => Some(true),
+        _ => fatal(format!("proj.db {} is not 0 or 1", column_name(row, index))),
+    }
+}
+
+fn column_flag(row: &Row<'_>, index: usize) -> bool {
+    required(column_optional_flag(row, index), row, index)
+}
+
+fn epsg_reference(row: &Row<'_>, authority_index: usize) -> Option<u32> {
+    let is_epsg = match column_value(row, authority_index) {
+        ValueRef::Null => None,
+        ValueRef::Text(authority) => Some(authority == b"EPSG"),
+        _ => fatal(format!(
+            "proj.db {} is not text",
+            column_name(row, authority_index)
+        )),
+    };
+    match (is_epsg, column_optional_code(row, authority_index + 1)) {
+        (None, None) => None,
+        (Some(true), Some(code)) => Some(code),
+        _ => fatal(format!(
+            "proj.db {} is not an EPSG reference",
+            column_name(row, authority_index)
+        )),
+    }
+}
+
+fn required_epsg_reference(row: &Row<'_>, authority_index: usize) -> u32 {
+    required(epsg_reference(row, authority_index), row, authority_index)
+}
+
+// ---------------------------------------------------------------------------
 // blob assembly
 // ---------------------------------------------------------------------------
 
@@ -790,6 +2017,17 @@ struct Counts {
     crs: usize,
     extents: usize,
     datum_aliases: usize,
+    strings: usize,
+    units_of_measure: usize,
+    ellipsoids: usize,
+    prime_meridians: usize,
+    datums: usize,
+    coordinate_systems: usize,
+    crs_definitions: usize,
+    conversions: usize,
+    coordinate_operations: usize,
+    grid_alternatives: usize,
+    supersessions: usize,
 }
 
 fn write_file(path: &Path, contents: &[u8]) {
@@ -806,7 +2044,7 @@ fn assert_reproducible(path: &Path, expected: &[u8]) {
     });
     if existing != expected {
         fatal(format!(
-            "{} does not match the pinned proj.db\n  expected {} ({} bytes)\n  found    {} ({} bytes)\nregenerate with: cargo run --manifest-path tools/gen-epsg-registry/Cargo.toml",
+            "{} does not match the pinned proj.db\n  expected {} ({} bytes)\n  found    {} ({} bytes)\nregenerate with: cargo run --manifest-path tools/gen-epsg-registry/Cargo.toml -- --proj-db PATH",
             path.display(),
             sha256_hex(expected),
             expected.len(),
@@ -829,7 +2067,7 @@ mod tests {
     fn canonical_float_rounds_to_a_stable_decimal_expansion() {
         assert_eq!(canonical_f64(0.0), 0.0);
         assert_eq!(canonical_f64(-180.0), -180.0);
-        assert_eq!(canonical_f64(1.0 / 3.0), 0.33333333333333);
+        assert_eq!(canonical_f64(1.0 / 3.0), 0.333333333333333);
         assert_eq!(canonical_f64(49.000_000_000_000_01), 49.0);
     }
 
@@ -881,13 +2119,19 @@ mod tests {
     }
 
     #[test]
-    fn args_default_to_writing() {
-        let args = Args::parse_from(Vec::new()).unwrap();
-        assert!(args.mode == Mode::Write && args.proj_db.is_none());
+    fn args_default_to_writing_and_require_a_proj_db() {
+        let proj_db = || ["--proj-db".to_string(), "proj.db".to_string()];
 
-        let args = Args::parse_from(["--check".to_string()]).unwrap();
+        let args = Args::parse_from(proj_db()).unwrap();
+        assert!(args.mode == Mode::Write);
+        assert_eq!(args.proj_db, PathBuf::from("proj.db"));
+
+        let args =
+            Args::parse_from(std::iter::once("--check".to_string()).chain(proj_db())).unwrap();
         assert!(args.mode == Mode::Check);
 
+        assert!(Args::parse_from(Vec::new()).is_err());
+        assert!(Args::parse_from(["--check".to_string()]).is_err());
         assert!(Args::parse_from(["--proj-db".to_string()]).is_err());
         assert!(Args::parse_from(["--nope".to_string()]).is_err());
     }

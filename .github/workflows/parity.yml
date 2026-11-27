@@ -21,7 +21,7 @@ env:
   # C PROJ is the reference these tests compare against, so it is built from a pinned
   # release rather than taken from the runner image, where an image update would move
   # the reference under us.
-  PROJ_VERSION: 9.6.2
+  PROJ_VERSION: 9.8.1
   PROJ_PREFIX: /home/runner/proj
 
 jobs:

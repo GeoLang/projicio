@@ -36,6 +36,13 @@ All notable changes to this project will be documented in this file.
   `Crs::to_projjson` read and write PROJJSON as PROJ 9.8.1 writes it, and
   `Crs::is_equivalent_to` compares datum, axes and conversion as PROJ's `isEquivalentTo`
   does, so EPSG:4269 (NAD83) is not EPSG:4326 (WGS 84). `Transform` does not use it yet.
+- 2026-11-27: the EPSG registry carries the definitions behind every current geodetic
+  and projected CRS (units, ellipsoids, prime meridians, datums and ensembles,
+  coordinate systems, conversions) and every current EPSG operation between geodetic
+  CRSs (Helmert with rates and epochs, grid with PROJ's CDN file names, other,
+  concatenated, supersession), looked up through `projicio_core::registry`. It is
+  generated from PROJ 9.8.1 (EPSG v12.029), which CI builds proj.db from and the
+  parity job compares against, in place of 9.6.2.
 - `LambertAzimuthalEqualArea` (EPSG method 9820), the ellipsoidal Lambert Azimuthal
   Equal Area used by ETRS-LAEA (EPSG:3035).
 - Native path built from an EPSG code's own proj4 definition, for the 64 codes proj4rs has

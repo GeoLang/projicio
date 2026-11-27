@@ -97,7 +97,7 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 <li>Forward and inverse transforms</li>
 <li>Thread-safe (Send + Sync)</li>
 <li>All 120 UTM zones (60 north, 60 south)</li>
-<li>Compared against PROJ 9.6.2 <code>cs2cs</code> by a weekly CI job: the closed-form projections agree to about 1e-8 m, transverse mercator to 0.8 mm at the edge of a UTM zone at 60 degrees north</li>
+<li>Compared against PROJ 9.8.1 <code>cs2cs</code> by a weekly CI job. Against PROJ 9.6.2 the closed-form projections agreed to about 1e-8 m, transverse mercator to 0.8 mm at the edge of a UTM zone at 60 degrees north</li>
 </ul>
 </div>
 <div class="card">
@@ -115,7 +115,7 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 <li>5935 EPSG codes resolve, 186 of them on projicio's own math</li>
 <li>The rest go to proj4rs over an embedded proj4 definition table</li>
 <li>NTv2 datum shift grids registered at runtime, from a path or from bytes</li>
-<li>EPSG names, deprecation flags, datums and areas of use from an embedded blob (the <code>registry</code> feature)</li>
+<li>EPSG names, deprecation flags, datums and areas of use from an embedded blob (the <code>registry</code> feature), with the CRS definitions and coordinate operations behind them as plain records</li>
 <li>WKT1 and WKT2 read wherever an EPSG code is accepted</li>
 <li>PROJJSON read and written as PROJ 9.8.1 writes it, into an ISO 19111 model that tells NAD83 from WGS 84. <code>Transform</code> does not take it yet</li>
 <li>WebAssembly bindings, grid registration included</li>

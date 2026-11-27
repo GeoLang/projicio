@@ -1,0 +1,56 @@
+# EPSG code, CRS type, unit and name of the first axis (of the horizontal CRS for a compound CRS)
+# from projinfo EPSG:<code> -o PROJJSON, PROJ 9.8.1 with EPSG v12.029
+# 11214, 11219 and 11512 are newer than that and come from PROJ master's data/sql
+2049	ProjectedCRS	metre	Westing
+2192	ProjectedCRS	metre	Easting
+2393	ProjectedCRS	metre	Northing
+2921	ProjectedCRS	foot	Easting
+3001	ProjectedCRS	metre	Easting
+3035	ProjectedCRS	metre	Northing
+3376	ProjectedCRS	metre	Easting
+3377	ProjectedCRS	metre	Easting
+3388	ProjectedCRS	metre	Northing
+3568	ProjectedCRS	US survey foot	Easting
+3577	ProjectedCRS	metre	Easting
+3812	ProjectedCRS	metre	Easting
+3857	ProjectedCRS	metre	Easting
+4123	GeographicCRS	degree	Geodetic latitude
+4148	GeographicCRS	degree	Geodetic latitude
+4152	GeographicCRS	degree	Geodetic latitude
+4190	GeographicCRS	degree	Geodetic latitude
+4202	GeographicCRS	degree	Geodetic latitude
+4211	GeographicCRS	degree	Geodetic latitude
+4230	GeographicCRS	degree	Geodetic latitude
+4237	GeographicCRS	degree	Geodetic latitude
+4258	GeographicCRS	degree	Geodetic latitude
+4267	GeographicCRS	degree	Geodetic latitude
+4269	GeographicCRS	degree	Geodetic latitude
+4275	GeographicCRS	degree	Geodetic latitude
+4277	GeographicCRS	degree	Geodetic latitude
+4283	GeographicCRS	degree	Geodetic latitude
+4284	GeographicCRS	degree	Geodetic latitude
+4289	GeographicCRS	degree	Geodetic latitude
+4313	GeographicCRS	degree	Geodetic latitude
+4326	GeographicCRS	degree	Geodetic latitude
+4742	GeographicCRS	degree	Geodetic latitude
+4807	GeographicCRS	grad	Geodetic latitude
+4937	GeographicCRS	degree	Geodetic latitude
+4978	GeodeticCRS	metre	Geocentric X
+4979	GeographicCRS	degree	Geodetic latitude
+7843	GeographicCRS	degree	Geodetic latitude
+7912	GeographicCRS	degree	Geodetic latitude
+9518	CompoundCRS	degree	Geodetic latitude
+9781	GeographicCRS	degree	Geodetic latitude
+9785	CompoundCRS	degree	Geodetic latitude
+9907	CompoundCRS	degree	Geodetic latitude
+11214	GeographicCRS	degree	Geodetic latitude
+11219	ProjectedCRS	metre	Easting
+11512	CompoundCRS	degree	Geodetic latitude
+22175	ProjectedCRS	metre	Northing
+23700	ProjectedCRS	metre	Easting
+25832	ProjectedCRS	metre	Easting
+26915	ProjectedCRS	metre	Easting
+28354	ProjectedCRS	metre	Easting
+28992	ProjectedCRS	metre	Easting
+31370	ProjectedCRS	metre	Easting
+32631	ProjectedCRS	metre	Easting

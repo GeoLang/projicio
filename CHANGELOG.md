@@ -25,6 +25,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- 2026-11-27: PROJ's gie tests and the IOGP GIGS datasets run against `Transform`, with
+  `examples/gie_report.rs` printing passes, failures and skip reasons per file, and
+  `tests/proj_gie.rs` failing when a case listed in `tests/data/gie_passing.txt` stops
+  passing. The list starts empty.
 - 2026-11-27: `from_epsg_method` builds a projection from an EPSG conversion method code,
   its parameters in SI units and an ellipsoid, with no PROJ string in between. It covers
   38 of the 43 methods current EPSG projected CRSs use, ported from PROJ's

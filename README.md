@@ -282,6 +282,34 @@ embedded definition, which is metre-level. A definition with neither applies no 
 all, and `epsg::support` will still report `Fallback` for it, since that is what the
 definition itself asks for.
 
+### PROJ's gie tests
+
+`crates/projicio-core/tests/data` has PROJ's declarative tests: `test/gie` and the IOGP
+GIGS 5100 and 5200 series, whose expected values are IOGP's. Parsing matches PROJ's
+`gie.cpp`, quirks included, and each case goes through `Transform::new` and `convert`.
+Cases between two EPSG CRSs run: `crs_src` with `crs_dst`, in the CRSs' EPSG axis order,
+and an `operation` of the form `proj=pipeline step init=epsg:A inv step init=epsg:B`, in
+longitude, latitude order. These cases are skipped with a reason:
+
+- any other `operation`, since projicio does not run PROJ strings
+- a `require_grid` that is not registered with `grids`, or an EPSG pair whose projicio
+  definition names an unregistered grid
+- a nonzero height in the accepted or expected coordinate, or a geocentric CRS on either side
+- a nonzero time coordinate
+- `expect failure errno`, since projicio errors have no PROJ error code
+
+```bash
+cargo run --release -p projicio-core --example gie_report -- crates/projicio-core/tests/data
+```
+
+prints, per file and for each suite, the cases passed, failed and skipped, the largest
+error with its tolerance, and the skip reasons. Errors and tolerances are metres for
+geographic output, as the chord between the two points on GRS80, and the CRS's unit
+otherwise. `--manifest` prints the passing cases instead, as `gie_passing.txt` lists them, and
+`cargo test -p projicio-core --test proj_gie` fails when a listed case stops passing. The
+transformation files from 5203 to 5207 state their tolerance as 2.78e-7 m where they mean
+that many degrees, so their cases fail here unless the error is under 0.28 micrometres.
+
 ## Architecture
 
 ```

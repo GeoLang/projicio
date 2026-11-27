@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- 2026-11-27: the 23 Lambert Azimuthal Equal Area and Equidistant Cylindrical EPSG
+  codes, EPSG:3035 and EPSG:4087 among them, take projicio's own path through
+  `from_epsg_method` instead of proj4rs. proj4rs has PROJ's formulas from before 9.7's
+  exact inverse authalic latitude and 9.8's ellipsoidal Equidistant Cylindrical, so
+  EPSG:4087 was 25 km off cs2cs 9.8.1 in northing and the EPSG:3035 inverse 7e-9 degrees.
+  `epsg::support` reports them as native. `NativeCrs::from_definition` is removed.
 - 2026-11-05: `Transform::new` and `missing_grids` refuse a WKT past 64 KiB or
   nested past 32 levels before parsing it, because proj4wkt recurses once per
   `[` with no limit and a stack overflow aborts the process.

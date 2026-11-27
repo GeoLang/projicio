@@ -236,9 +236,6 @@ fn parse_epsg(code: &str) -> Result<u32, Error> {
 }
 
 /// How a side of the pair reaches the hub.
-///
-/// Only codes the fallback engine cannot serve today take the definition path,
-/// so no code changes the engine it already resolved to.
 fn make_leg(spec: &Spec) -> Leg {
     let Spec::Epsg(code) = spec else {
         return Leg::Proj4rs;
@@ -246,12 +243,9 @@ fn make_leg(spec: &Spec) -> Leg {
     if epsg::is_native(*code) {
         return Leg::HandWritten(*code);
     }
-    let native = epsg::proj4_definition(*code).and_then(|def| NativeCrs::from_definition(def).ok());
-    match native {
-        Some(crs) if crate::fallback::classify(*code) == Support::Unsupported => {
-            Leg::FromDefinition(crs)
-        }
-        _ => Leg::Proj4rs,
+    match epsg::native_from_definition(*code) {
+        Some(crs) => Leg::FromDefinition(crs),
+        None => Leg::Proj4rs,
     }
 }
 

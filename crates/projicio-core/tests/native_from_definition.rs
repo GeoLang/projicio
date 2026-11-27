@@ -1,5 +1,5 @@
-// Codes proj4rs cannot build, transformed by projicio's own math from the
-// parameters in their embedded proj4 definition.
+// Codes proj4rs cannot build, and laea and eqc codes, transformed by projicio's
+// own math from the parameters in their embedded proj4 definition.
 //
 // The known-value cases pair the grid with a geographic CRS on the same datum,
 // so the published numbers are the projection alone with no datum shift.
@@ -212,8 +212,8 @@ fn definition_built_codes() -> Vec<u32> {
 #[test]
 fn test_definition_path_covers_the_expected_codes() {
     let codes = definition_built_codes();
-    assert_eq!(codes.len(), 64, "covered codes: {codes:?}");
-    for expected in [30200, 29873, 3376, 3377, 8441, 8857, 5880, 3068] {
+    assert_eq!(codes.len(), 87, "covered codes: {codes:?}");
+    for expected in [30200, 29873, 3376, 3377, 8441, 8857, 5880, 3068, 3035, 4087] {
         assert!(codes.contains(&expected), "EPSG:{expected} is not covered");
     }
 }
@@ -271,12 +271,31 @@ fn test_codes_the_parser_rejects_keep_their_classification() {
 }
 
 #[test]
+fn laea_and_eqc_codes_take_proj_current_formulas() {
+    for code in [3035, 4087] {
+        assert_eq!(epsg::support(code), Support::Native, "EPSG:{code}");
+    }
+    // printf '50 100\n' | cs2cs -f %.9f EPSG:4326 EPSG:4087, PROJ 9.8.1
+    let (x, y) = Transform::new("EPSG:4326", "EPSG:4087")
+        .unwrap()
+        .convert(100.0, 50.0)
+        .unwrap();
+    assert!((x - 11_131_949.079_327_356).abs() < 1e-6, "x {x}");
+    assert!((y - 5_540_847.041_684_148).abs() < 1e-6, "y {y}");
+    // cs2cs 9.8.1 takes this EPSG:3035 point back to exactly 40N 9W
+    let (lon, lat) = Transform::new("EPSG:3035", "EPSG:4258")
+        .unwrap()
+        .convert(2_709_134.123_399_795_5, 2_081_705.702_105_159_9)
+        .unwrap();
+    assert!((lon + 9.0).abs() < 1e-9, "lon {lon}");
+    assert!((lat - 40.0).abs() < 1e-9, "lat {lat}");
+}
+
+#[test]
 fn test_fallback_and_grid_codes_are_untouched() {
-    // The definition path only ever applies to codes proj4rs cannot build, so
-    // nothing that already worked moves engine.
-    for code in [
-        27700, 2154, 25832, 3035, 2229, 31370, 3006, 28992, 4302, 4298,
-    ] {
+    // Outside laea and eqc, the definition path only applies to codes proj4rs
+    // cannot build, so nothing else that already worked moves engine.
+    for code in [27700, 2154, 25832, 2229, 31370, 3006, 28992, 4302, 4298] {
         assert_eq!(epsg::support(code), Support::Fallback, "EPSG:{code}");
     }
     for code in [4267, 32040] {

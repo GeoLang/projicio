@@ -222,7 +222,7 @@ fn test_support_reports_native_codes() {
 
 #[test]
 fn test_support_reports_fallback_codes() {
-    for code in [27700, 2154, 25832, 3035, 2229, 31370, 3006, 28992] {
+    for code in [27700, 2154, 25832, 2229, 31370, 3006, 28992] {
         assert_eq!(epsg::support(code), Support::Fallback, "EPSG:{code}");
         assert!(!epsg::is_native(code));
         assert!(epsg::proj4_definition(code).is_some());

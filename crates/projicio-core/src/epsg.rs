@@ -251,18 +251,20 @@ pub fn is_native(code: u32) -> bool {
 /// datum shift grid reports [`Support::NeedsGrid`] until that grid is registered, and
 /// [`Support::Fallback`] afterwards.
 pub fn support(code: u32) -> Support {
-    if is_native(code) {
+    if is_native(code) || native_from_definition(code).is_some() {
         return Support::Native;
     }
-    match crate::fallback::classify(code) {
-        Support::Unsupported if builds_from_definition(code) => Support::Native,
-        other => other,
-    }
+    crate::fallback::classify(code)
 }
 
-fn builds_from_definition(code: u32) -> bool {
-    proj4_definition(code)
-        .is_some_and(|def| crate::projstring::NativeCrs::from_definition(def).is_ok())
+pub(crate) fn native_from_definition(code: u32) -> Option<crate::projstring::NativeCrs> {
+    let definition = crate::projstring::parse(proj4_definition(code)?).ok()?;
+    if !definition.method.outdates_proj4rs()
+        && crate::fallback::classify(code) != Support::Unsupported
+    {
+        return None;
+    }
+    crate::projstring::NativeCrs::build(&definition).ok()
 }
 
 /// Parse a simple WKT CRS string and extract the EPSG code.

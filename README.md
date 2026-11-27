@@ -82,8 +82,8 @@ assert_eq!(epsg::support(99999), Support::Unsupported);
 
 | | Codes | With common grids registered |
 |---|---|---|
-| Native | 186 | 186 |
-| Fallback | 5749 | 5953 |
+| Native | 209 | 209 |
+| Fallback | 5726 | 5930 |
 | **Total resolvable** | **5935** | **6139** |
 | Needs a datum-shift grid | 237 | 33 |
 | No usable projection method | 12 | 12 |
@@ -93,9 +93,12 @@ that fails later.
 
 64 of the native codes are ones proj4rs cannot build. projicio parses their embedded
 definition itself and projects them with its own math, which is how Cassini-Soldner,
-Hotine Oblique Mercator, American Polyconic, Equal Earth and Laborde grids resolve. The
-parser rejects any definition carrying a parameter it does not fully implement, so a code
-either transforms exactly as its definition says or keeps reporting that it cannot.
+Hotine Oblique Mercator, American Polyconic, Equal Earth and Laborde grids resolve. 23
+more are Lambert Azimuthal Equal Area and Equidistant Cylindrical codes proj4rs can build
+but with the formulas PROJ replaced in 9.7 and 9.8. projicio runs those through
+`from_epsg_method`, ported from current PROJ. The parser rejects any definition carrying a
+parameter it does not fully implement, so a code either transforms exactly as its
+definition says or keeps reporting that it cannot.
 
 The 12 remaining gaps break down as four for a projection method nobody here implements
 (three `cea`, one `nzmg`), four for a prime meridian other than Greenwich (two on Ferro,

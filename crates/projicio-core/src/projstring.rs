@@ -8,6 +8,7 @@
 
 use crate::projection::{
     AmericanPolyconic, CassiniSoldner, EqualEarth, HotineObliqueMercator, Laborde, Projection,
+    from_epsg_method,
 };
 use crate::{
     Coord, Ellipsoid, Error, GeocentricCoord, Geographic, HelmertTransform, geocentric_to_geodetic,
@@ -56,6 +57,24 @@ pub enum Method {
         azimuth: f64,
         k_0: f64,
     },
+    LambertAzimuthalEqualArea {
+        lat_0: f64,
+        lon_0: f64,
+    },
+    EquidistantCylindrical {
+        lat_ts: f64,
+        lon_0: f64,
+    },
+}
+
+impl Method {
+    pub fn outdates_proj4rs(&self) -> bool {
+        // proj 9.7 made the laea inverse exact and proj 9.8 made eqc ellipsoidal, proj4rs 0.1.10 has neither
+        matches!(
+            self,
+            Method::LambertAzimuthalEqualArea { .. } | Method::EquidistantCylindrical { .. }
+        )
+    }
 }
 
 /// How geographic coordinates on this CRS reach WGS84.
@@ -151,11 +170,6 @@ pub struct NativeCrs {
 }
 
 impl NativeCrs {
-    /// Build from a proj4 definition, or say why projicio cannot.
-    pub fn from_definition(definition: &str) -> Result<Self, Error> {
-        Self::build(&parse(definition)?)
-    }
-
     pub fn build(definition: &Definition) -> Result<Self, Error> {
         let ellipsoid = definition.ellipsoid;
         let false_easting = definition.false_easting;
@@ -213,6 +227,26 @@ impl NativeCrs {
                 false_easting,
                 false_northing,
             )?),
+            Method::LambertAzimuthalEqualArea { lat_0, lon_0 } => from_epsg_method(
+                9820,
+                &[
+                    (8801, lat_0.to_radians()),
+                    (8802, lon_0.to_radians()),
+                    (8806, false_easting),
+                    (8807, false_northing),
+                ],
+                &ellipsoid,
+            )?,
+            Method::EquidistantCylindrical { lat_ts, lon_0 } => from_epsg_method(
+                1028,
+                &[
+                    (8823, lat_ts.to_radians()),
+                    (8802, lon_0.to_radians()),
+                    (8806, false_easting),
+                    (8807, false_northing),
+                ],
+                &ellipsoid,
+            )?,
         };
         Ok(Self {
             projection,
@@ -360,6 +394,22 @@ fn parse_method(proj: &str, params: &mut Params) -> Result<Method, Error> {
                 .ok_or_else(|| reject("+proj=labrd needs +azi".to_string()))?,
             k_0: take_scale(params)?,
         }),
+        "laea" => Ok(Method::LambertAzimuthalEqualArea {
+            lat_0: params.take_number("lat_0")?.unwrap_or(0.0),
+            lon_0: params.take_number("lon_0")?.unwrap_or(0.0),
+        }),
+        "eqc" => {
+            let lat_0 = params.take_number("lat_0")?.unwrap_or(0.0);
+            if lat_0 != 0.0 {
+                return Err(reject(format!(
+                    "+proj=eqc +lat_0={lat_0} is not EPSG method 1028, which has no latitude of origin"
+                )));
+            }
+            Ok(Method::EquidistantCylindrical {
+                lat_ts: params.take_number("lat_ts")?.unwrap_or(0.0),
+                lon_0: params.take_number("lon_0")?.unwrap_or(0.0),
+            })
+        }
         other => Err(reject(format!(
             "+proj={other} has no projicio implementation"
         ))),

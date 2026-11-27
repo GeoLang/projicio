@@ -13,6 +13,6 @@ publish = false
 [dependencies]
 flate2 = "1"
 projicio-epsg-format = { path = "../../crates/projicio-epsg-format" }
-rusqlite = { version = "0.37", features = ["bundled"] }
+rusqlite = { version = "0.43", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

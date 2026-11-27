@@ -25,6 +25,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- 2026-11-27: `from_epsg_method` builds a projection from an EPSG conversion method code,
+  its parameters in SI units and an ellipsoid, with no PROJ string in between. It covers
+  38 of the 43 methods current EPSG projected CRSs use, ported from PROJ's
+  `src/projections` (MIT, notice in `LICENSES/PROJ-MIT.txt`), including the exact
+  Poder/Engsager Transverse Mercator. `Transform` does not use it yet.
 - `LambertAzimuthalEqualArea` (EPSG method 9820), the ellipsoidal Lambert Azimuthal
   Equal Area used by ETRS-LAEA (EPSG:3035).
 - Native path built from an EPSG code's own proj4 definition, for the 64 codes proj4rs has

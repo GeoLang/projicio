@@ -38,7 +38,7 @@ pub use error::Error;
 pub use projection::{
     AlbersEqualArea, AmericanPolyconic, CassiniSoldner, EqualEarth, HotineObliqueMercator, Laborde,
     LambertAzimuthalEqualArea, LambertConformalConic, Mercator, PolarStereographic, Projection,
-    TransverseMercator, WebMercator,
+    TransverseMercator, WebMercator, from_epsg_method,
 };
 pub use transform::Transform;
 

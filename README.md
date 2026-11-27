@@ -238,7 +238,7 @@ Projections within one datum follow the published formulas. The test suite check
 against IOGP Guidance Note 7-2 worked examples, NOAA NGS datasheets and IGN's published
 Lambert-93 constants. Transverse Mercator sums a sixth-order series where PROJ solves
 exactly, which differs by 0.8 mm at the edge of a UTM zone at 60 degrees north and more
-further out.
+further out. `from_epsg_method` runs PROJ's own Poder/Engsager algorithm instead.
 
 The parity suite compares transforms against C PROJ's `cs2cs`. CI runs it weekly against
 PROJ 9.6.2 (`.github/workflows/parity.yml`), and locally it runs with:
@@ -293,6 +293,32 @@ axis units and datum shift those codes carry:
 
 Ask for any other code with `projicio info EPSG:<code>` or `epsg::support(code)`.
 
+### Projections by EPSG method
+
+`from_epsg_method(method_code, parameters, ellipsoid)` builds a projection from an EPSG
+conversion method code and its parameters as `(EPSG parameter code, value)` pairs in
+radians, metres and unity. It returns easting and northing in metres before any axis
+swap or unit change, with longitudes relative to the base CRS's prime meridian.
+`Transform` does not route through it yet.
+
+The math is ported from PROJ 9.8's `src/projections` and follows the method mapping in
+PROJ's `conversion.cpp`. It covers 38 of the 43 methods that current EPSG projected CRSs
+use: Transverse Mercator (exact Poder/Engsager, also 3D, South Orientated and the
+zoned grid system), Lambert Conic Conformal (1SP, 1SP variant B, 2SP, 2SP Belgium,
+2SP Michigan), Albers, Cassini-Soldner and its hyperbolic form, Polar Stereographic
+A and B, Oblique Stereographic, Hotine Oblique Mercator A and B, Lambert Azimuthal
+Equal Area and its spherical form, Mercator A and B, Pseudo Mercator, Krovak and its
+north-orientated and modified forms, American Polyconic, Laborde, New Zealand Map Grid,
+Lambert Cylindrical Equal Area and its spherical form, Equidistant Cylindrical, Equal
+Earth, Azimuthal Equidistant and its modified form, Guam, Local Orthographic and
+Colombia Urban.
+
+The other five have no PROJ implementation and return an error: Tunisia Mining Grid
+(9816), Lambert Conic Near-Conformal (9817), Lambert Conic Conformal West Orientated
+(9826), Bonne South Orientated (9828) and Polar Stereographic variant C (9830). The
+`epsg_method` tests compare every implemented method against PROJ 9.8.1's `cs2cs` to
+1 mm forward and 1e-9 degrees inverse.
+
 ## Datum Transforms
 
 | Method | Description |
@@ -306,6 +332,9 @@ Ask for any other code with `projicio info EPSG:<code>` or `epsg::support(code)`
 The Cassini-Soldner, Hotine Oblique Mercator, American Polyconic, Equal Earth and Laborde
 implementations are ported from [proj-rust](https://github.com/roteiro-gis/proj-rust), used under
 its MIT OR Apache-2.0 license.
+
+The projections behind `from_epsg_method` are ported from [PROJ](https://github.com/OSGeo/PROJ),
+used under its MIT license, kept in [LICENSES/PROJ-MIT.txt](LICENSES/PROJ-MIT.txt).
 
 ## License
 

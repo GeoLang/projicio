@@ -27,6 +27,9 @@ Transforms coordinates between 5935 EPSG codes without linking C PROJ or GDAL.
 - **EPSG code dispatch**: `Transform::new("EPSG:4326", "EPSG:3857")`, or a proj4 projstring starting with `+` on either side
 - **WKT input**: `Transform::new` takes a `.prj` sidecar's WKT (1 or 2) on either side,
   converted at parse time by [`proj4wkt`](https://crates.io/crates/proj4wkt)
+- **PROJJSON and the ISO 19111 model**: `iso19111::Crs::from_projjson` and `to_projjson` read
+  and write PROJJSON as PROJ 9.8.1 writes it. `Crs::is_equivalent_to` compares datum, axes and
+  conversion, so NAD83 and WGS 84 differ. `Transform` does not take PROJJSON yet
 - **5935 EPSG codes**: national grids, State Plane, UTM on any datum, across both engines
 - **Reusable transforms**: build a `Transform` once and convert many coordinates through it.
   `convert_batch` is that loop, not a vectorised path. `Transform::path` reports which engine it resolved to
@@ -256,7 +259,7 @@ definition itself asks for.
 ## Architecture
 
 ```
-projicio-core:         projection math, ellipsoids, datum transforms, NTv2, CRS registry, fallback engine
+projicio-core:         projection math, ellipsoids, datum transforms, NTv2, CRS registry, fallback engine, ISO 19111 CRS model and PROJJSON
 projicio-epsg-format:  binary layout of the embedded EPSG metadata registry
 projicio-cli:          command-line interface
 projicio-wasm:         WebAssembly bindings, built with wasm-pack build --target web

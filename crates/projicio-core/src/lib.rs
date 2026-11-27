@@ -22,6 +22,7 @@ pub mod epsg;
 mod error;
 mod fallback;
 pub mod grids;
+pub mod iso19111;
 mod projection;
 pub mod projstring;
 #[cfg(feature = "registry")]

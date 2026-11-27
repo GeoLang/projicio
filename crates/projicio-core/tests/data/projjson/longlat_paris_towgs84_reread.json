@@ -1,0 +1,152 @@
+{
+  "$schema": "https://proj.org/schemas/v0.7/projjson.schema.json",
+  "type": "BoundCRS",
+  "source_crs": {
+    "type": "GeographicCRS",
+    "name": "unknown",
+    "datum": {
+      "type": "GeodeticReferenceFrame",
+      "name": "Unknown based on Clarke 1880 (IGN). ellipsoid using towgs84=-168,-60,320",
+      "ellipsoid": {
+        "name": "Clarke 1880 (IGN).",
+        "semi_major_axis": 6378249.2,
+        "inverse_flattening": 293.466021293627
+      },
+      "prime_meridian": {
+        "name": "Paris",
+        "longitude": {
+          "value": 2.5969213,
+          "unit": {
+            "type": "AngularUnit",
+            "name": "grad",
+            "conversion_factor": 0.015707963267949
+          }
+        },
+        "id": {
+          "authority": "EPSG",
+          "code": 8903
+        }
+      }
+    },
+    "coordinate_system": {
+      "subtype": "ellipsoidal",
+      "axis": [
+        {
+          "name": "Longitude",
+          "abbreviation": "lon",
+          "direction": "east",
+          "unit": "degree"
+        },
+        {
+          "name": "Latitude",
+          "abbreviation": "lat",
+          "direction": "north",
+          "unit": "degree"
+        }
+      ]
+    }
+  },
+  "target_crs": {
+    "type": "GeographicCRS",
+    "name": "WGS 84",
+    "datum": {
+      "type": "GeodeticReferenceFrame",
+      "name": "World Geodetic System 1984",
+      "ellipsoid": {
+        "name": "WGS 84",
+        "semi_major_axis": 6378137,
+        "inverse_flattening": 298.257223563
+      }
+    },
+    "coordinate_system": {
+      "subtype": "ellipsoidal",
+      "axis": [
+        {
+          "name": "Latitude",
+          "abbreviation": "lat",
+          "direction": "north",
+          "unit": "degree"
+        },
+        {
+          "name": "Longitude",
+          "abbreviation": "lon",
+          "direction": "east",
+          "unit": "degree"
+        }
+      ]
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 4326
+    }
+  },
+  "transformation": {
+    "name": "Transformation from unknown to WGS84",
+    "source_crs": {
+      "type": "GeographicCRS",
+      "name": "unknown (with Greenwich prime meridian)",
+      "datum": {
+        "type": "GeodeticReferenceFrame",
+        "name": "Unknown based on Clarke 1880 (IGN). ellipsoid using towgs84=-168,-60,320 (with Greenwich prime meridian)",
+        "ellipsoid": {
+          "name": "Clarke 1880 (IGN).",
+          "semi_major_axis": 6378249.2,
+          "inverse_flattening": 293.466021293627
+        }
+      },
+      "coordinate_system": {
+        "subtype": "ellipsoidal",
+        "axis": [
+          {
+            "name": "Longitude",
+            "abbreviation": "lon",
+            "direction": "east",
+            "unit": "degree"
+          },
+          {
+            "name": "Latitude",
+            "abbreviation": "lat",
+            "direction": "north",
+            "unit": "degree"
+          }
+        ]
+      }
+    },
+    "method": {
+      "name": "Geocentric translations (geog2D domain)",
+      "id": {
+        "authority": "EPSG",
+        "code": 9603
+      }
+    },
+    "parameters": [
+      {
+        "name": "X-axis translation",
+        "value": -168,
+        "unit": "metre",
+        "id": {
+          "authority": "EPSG",
+          "code": 8605
+        }
+      },
+      {
+        "name": "Y-axis translation",
+        "value": -60,
+        "unit": "metre",
+        "id": {
+          "authority": "EPSG",
+          "code": 8606
+        }
+      },
+      {
+        "name": "Z-axis translation",
+        "value": 320,
+        "unit": "metre",
+        "id": {
+          "authority": "EPSG",
+          "code": 8607
+        }
+      }
+    ]
+  }
+}

@@ -14,4 +14,7 @@ pub enum Error {
 
     #[error("grid error: {0}")]
     GridError(String),
+
+    #[error("invalid PROJJSON: {0}")]
+    InvalidProjJson(String),
 }

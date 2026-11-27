@@ -30,6 +30,12 @@ All notable changes to this project will be documented in this file.
   38 of the 43 methods current EPSG projected CRSs use, ported from PROJ's
   `src/projections` (MIT, notice in `LICENSES/PROJ-MIT.txt`), including the exact
   Poder/Engsager Transverse Mercator. `Transform` does not use it yet.
+- 2026-11-27: `iso19111`, the CRS model of ISO 19111 as PROJ 6+ has it: datums and datum
+  ensembles, ellipsoids, prime meridians, axes, geographic, geocentric, projected and bound
+  CRSs, conversions and Helmert transformations. `Crs::from_projjson` and
+  `Crs::to_projjson` read and write PROJJSON as PROJ 9.8.1 writes it, and
+  `Crs::is_equivalent_to` compares datum, axes and conversion as PROJ's `isEquivalentTo`
+  does, so EPSG:4269 (NAD83) is not EPSG:4326 (WGS 84). `Transform` does not use it yet.
 - `LambertAzimuthalEqualArea` (EPSG method 9820), the ellipsoidal Lambert Azimuthal
   Equal Area used by ETRS-LAEA (EPSG:3035).
 - Native path built from an EPSG code's own proj4 definition, for the 64 codes proj4rs has

@@ -613,6 +613,7 @@ mod tests {
                 dynamic: None,
             })),
             coordinate_system: EllipsoidalCs::latitude_longitude(&UnitOfMeasure::degree()),
+            coordinate_system_is_implicit: false,
         })
     }
 

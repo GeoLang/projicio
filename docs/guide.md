@@ -133,6 +133,14 @@ came from, its checksum and its record counts. CI builds proj.db from the PROJ 9
 release tarball and regenerates the blob with `--check` to prove it still matches byte
 for byte.
 
+The WKT method and parameter tables (`src/iso19111/wkt/mappings.rs`) and the ESRI name
+table (`data/esri_names.tsv`, 0.9 MB, embedded with the `registry` feature) come from a
+PROJ 9.8.1 source checkout and its proj.db:
+
+```bash
+uv run tools/gen-wkt-tables/generate.py <PROJ 9.8.1 source> /usr/share/proj/proj.db
+```
+
 Turn the `registry` feature off to leave the blob out. The wasm bindings and the CLI
 already do, so `projicio info` prints the proj4 definition but no EPSG metadata.
 
@@ -419,6 +427,16 @@ from PROJ 9.8.1's `grids.cpp`. The `horizontal_shift_grid` tests compare small N
 and CTable2 grids against `cct` in both directions, and
 `horizontal_shift_grid_proj_data` compares EPSG:15940, 1241 and 1312 on copies of their
 grids in NTv2, CTable2 and NTv1 form from PROJ 9.8.1's `data/tests`.
+
+## WKT in the ISO 19111 model
+
+`iso19111::Crs::from_wkt` reads WKT1 GDAL, WKT1 ESRI, WKT2 2015 and WKT2 2019, and
+`Crs::to_wkt(dialect, layout)` writes them as projinfo 9.8.1 does. projinfo prints WKT1
+ESRI on one line, which is `WktLayout::SingleLine`. A WKT1 TOWGS84 reads as a BoundCRS to
+WGS 84. An ESRI projected 3D CRS writes as `PROJCS[...],VERTCS[...]` and reads back as a
+projected 3D CRS. Vertical, compound, engineering and derived CRSs raise. With the
+`registry` feature, EPSG identifiers give a WKT1 geographic CRS its EPSG axes, and ESRI
+names map to and from EPSG names. `Transform` still reads WKT through proj4wkt.
 
 ## Choosing an operation between two CRSs
 

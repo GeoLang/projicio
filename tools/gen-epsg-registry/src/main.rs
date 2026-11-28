@@ -41,11 +41,6 @@ const PROVENANCE_SCHEMA_VERSION: u16 = 1;
 const GENERATOR_NAME: &str = "gen-epsg-registry";
 const GENERATOR_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Decimal places used to round every float before it reaches the blob, so a
-/// value that differs only in the last bits of its decimal expansion cannot
-/// change the output.
-const CANONICAL_FLOAT_DECIMAL_PLACES: usize = 14;
-
 /// proj.db metadata keys recorded in the provenance file. Both must be
 /// present: without them the artifact cannot be traced to a dataset release.
 const EPSG_VERSION_KEY: &str = "EPSG.VERSION";
@@ -603,7 +598,7 @@ fn normalized_proj_db_sha256(connection: &Connection) -> String {
                     }
                     ValueRef::Real(value) => {
                         payload.push(b'f');
-                        payload.extend_from_slice(&canonical_f64(value).to_le_bytes());
+                        payload.extend_from_slice(&value.to_le_bytes());
                     }
                     ValueRef::Text(value) => append_tagged(&mut payload, b's', value),
                     ValueRef::Blob(value) => append_tagged(&mut payload, b'b', value),
@@ -1864,8 +1859,8 @@ fn column_text(row: &Row<'_>, index: usize) -> &'static str {
 fn column_optional_number(row: &Row<'_>, index: usize) -> Option<f64> {
     match column_value(row, index) {
         ValueRef::Null => None,
-        ValueRef::Integer(value) => Some(canonical_f64(value as f64)),
-        ValueRef::Real(value) => Some(canonical_f64(value)),
+        ValueRef::Integer(value) => Some(value as f64),
+        ValueRef::Real(value) => Some(finite_f64(value)),
         _ => fatal(format!(
             "proj.db {} is not a number",
             column_name(row, index)
@@ -2003,10 +1998,10 @@ fn encode_extent_records(records: &[ExtentRecord]) -> Vec<u8> {
     let mut payload = Vec::new();
     for record in records {
         write::u32(&mut payload, record.code);
-        write::f64(&mut payload, canonical_f64(record.west));
-        write::f64(&mut payload, canonical_f64(record.south));
-        write::f64(&mut payload, canonical_f64(record.east));
-        write::f64(&mut payload, canonical_f64(record.north));
+        write::f64(&mut payload, finite_f64(record.west));
+        write::f64(&mut payload, finite_f64(record.south));
+        write::f64(&mut payload, finite_f64(record.east));
+        write::f64(&mut payload, finite_f64(record.north));
         write_string(&mut payload, &record.name);
     }
     payload
@@ -2026,16 +2021,12 @@ fn write_string(payload: &mut Vec<u8>, value: &str) {
         .unwrap_or_else(|error| fatal(format!("cannot encode {value:?}: {error}")));
 }
 
-fn canonical_f64(value: f64) -> f64 {
+fn finite_f64(value: f64) -> f64 {
+    // PROJ's AuthorityFactory reads each proj.db float as the exact double sqlite stores
     if !value.is_finite() {
         fatal(format!("registry value {value} is not finite"));
     }
-    if value == 0.0 {
-        return 0.0;
-    }
-    format!("{value:.CANONICAL_FLOAT_DECIMAL_PLACES$e}")
-        .parse()
-        .unwrap_or_else(|error| fatal(format!("cannot canonicalize {value}: {error}")))
+    value
 }
 
 fn to_u16(value: usize, label: &str) -> u16 {
@@ -2138,14 +2129,6 @@ fn fatal(message: impl AsRef<str>) -> ! {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn canonical_float_rounds_to_a_stable_decimal_expansion() {
-        assert_eq!(canonical_f64(0.0), 0.0);
-        assert_eq!(canonical_f64(-180.0), -180.0);
-        assert_eq!(canonical_f64(1.0 / 3.0), 0.333333333333333);
-        assert_eq!(canonical_f64(49.000_000_000_000_01), 49.0);
-    }
 
     #[test]
     fn crs_kind_maps_geographic_and_projected() {

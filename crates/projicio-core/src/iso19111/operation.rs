@@ -2,9 +2,13 @@
 
 use super::common::{Measure, UnitOfMeasure, UnitType, epsg_code, names_are_equivalent};
 use super::crs::Crs;
+use super::datum::Ellipsoid;
 use super::metadata::{Identifier, is_equivalent_name};
 
+const METHOD_LAMBERT_CONIC_CONFORMAL_1SP: i32 = 9801;
 const METHOD_LAMBERT_CONIC_CONFORMAL_2SP: i32 = 9802;
+const METHOD_MERCATOR_VARIANT_A: i32 = 9804;
+const METHOD_MERCATOR_VARIANT_B: i32 = 9805;
 const METHOD_LAMBERT_AZIMUTHAL_EQUAL_AREA: i32 = 9820;
 const METHOD_LAMBERT_AZIMUTHAL_EQUAL_AREA_SPHERICAL: i32 = 1027;
 const METHOD_LAMBERT_CYLINDRICAL_EQUAL_AREA: i32 = 9835;
@@ -150,15 +154,24 @@ pub struct Conversion {
 }
 
 impl Conversion {
-    pub(crate) fn is_equivalent_to(&self, other: &Self, both_sources_are_spheres: bool) -> bool {
+    pub(crate) fn is_equivalent_to(
+        &self,
+        other: &Self,
+        source_ellipsoid: &Ellipsoid,
+        other_source_ellipsoid: &Ellipsoid,
+    ) -> bool {
         let operation = SingleOperation {
             method: &self.method,
             values: &self.parameter_values,
+            conversion_with_source_ellipsoid: Some((self, source_ellipsoid)),
         };
         let other_operation = SingleOperation {
             method: &other.method,
             values: &other.parameter_values,
+            conversion_with_source_ellipsoid: Some((other, other_source_ellipsoid)),
         };
+        let both_sources_are_spheres =
+            source_ellipsoid.is_sphere() && other_source_ellipsoid.is_sphere();
         operation.is_equivalent_to(&other_operation, both_sources_are_spheres, false)
     }
 }
@@ -183,10 +196,12 @@ impl Transformation {
         let operation = SingleOperation {
             method: &self.method,
             values: &self.parameter_values,
+            conversion_with_source_ellipsoid: None,
         };
         let other_operation = SingleOperation {
             method: &other.method,
             values: &other.parameter_values,
+            conversion_with_source_ellipsoid: None,
         };
         operation.is_equivalent_to(&other_operation, false, false)
     }
@@ -197,7 +212,7 @@ fn contains_ignoring_case(text: &str, needle: &str) -> bool {
         .contains(&needle.to_ascii_lowercase())
 }
 
-fn towgs84_parameters(
+pub(crate) fn towgs84_parameters(
     method: &OperationMethod,
     values: &[OperationParameterValue],
 ) -> Option<[f64; 7]> {
@@ -318,6 +333,7 @@ fn are_spherical_variants(code: i32, other_code: i32) -> bool {
 struct SingleOperation<'a> {
     method: &'a OperationMethod,
     values: &'a [OperationParameterValue],
+    conversion_with_source_ellipsoid: Option<(&'a Conversion, &'a Ellipsoid)>,
 }
 
 impl SingleOperation<'_> {
@@ -369,8 +385,37 @@ impl SingleOperation<'_> {
                     .zip(other_parameters)
                     .all(|(a, b)| (a - b).abs() <= 1e-10 * a.abs());
             }
-            // TODO: PROJ also matches LCC 1SP with 2SP and Mercator A with B by converting one method to the other
-            return false;
+            // PROJ converts from 2SP to 1SP, the direction with fewer degrees of freedom
+            if method_code == METHOD_LAMBERT_CONIC_CONFORMAL_1SP
+                && other_method_code == METHOD_LAMBERT_CONIC_CONFORMAL_2SP
+            {
+                return other.is_equivalent_to(self, both_sources_are_spheres, false);
+            }
+            let convertible = matches!(
+                (method_code, other_method_code),
+                (METHOD_MERCATOR_VARIANT_A, METHOD_MERCATOR_VARIANT_B)
+                    | (METHOD_MERCATOR_VARIANT_B, METHOD_MERCATOR_VARIANT_A)
+                    | (
+                        METHOD_LAMBERT_CONIC_CONFORMAL_2SP,
+                        METHOD_LAMBERT_CONIC_CONFORMAL_1SP
+                    )
+            );
+            let Some((conversion, ellipsoid)) = self
+                .conversion_with_source_ellipsoid
+                .filter(|_| convertible)
+            else {
+                return false;
+            };
+            let Some(converted) = conversion.convert_to_other_method(ellipsoid, other_method_code)
+            else {
+                return false;
+            };
+            let converted_operation = SingleOperation {
+                method: &converted.method,
+                values: &converted.parameter_values,
+                conversion_with_source_ellipsoid: Some((&converted, ellipsoid)),
+            };
+            return converted_operation.is_equivalent_to(other, both_sources_are_spheres, false);
         }
 
         let mut candidates = vec![true; other.values.len()];
@@ -445,7 +490,21 @@ impl SingleOperation<'_> {
         if equivalent && found_missing_arguments && !in_other_direction {
             return other.is_equivalent_to(self, both_sources_are_spheres, true);
         }
-        // TODO: PROJ retries differing LCC 2SP formulations by converting both to LCC 1SP
+        if !equivalent && method_code == METHOD_LAMBERT_CONIC_CONFORMAL_2SP {
+            // PROJ compares two differing LCC 2SP formulations through their LCC 1SP equivalents
+            if let (Some((conversion, ellipsoid)), Some((other_conversion, other_ellipsoid))) = (
+                self.conversion_with_source_ellipsoid,
+                other.conversion_with_source_ellipsoid,
+            ) {
+                let as_1sp = conversion
+                    .convert_to_other_method(ellipsoid, METHOD_LAMBERT_CONIC_CONFORMAL_1SP);
+                let other_as_1sp = other_conversion
+                    .convert_to_other_method(other_ellipsoid, METHOD_LAMBERT_CONIC_CONFORMAL_1SP);
+                if let (Some(as_1sp), Some(other_as_1sp)) = (as_1sp, other_as_1sp) {
+                    equivalent = as_1sp.is_equivalent_to(&other_as_1sp, ellipsoid, other_ellipsoid);
+                }
+            }
+        }
         equivalent
     }
 }
@@ -466,6 +525,15 @@ mod tests {
                 identifiers: vec![Identifier::new("EPSG", code)],
             },
             value: ParameterValue::Measure(Measure::new(value, unit)),
+        }
+    }
+
+    fn grs80() -> Ellipsoid {
+        Ellipsoid {
+            name: "GRS 1980".to_string(),
+            identifiers: Vec::new(),
+            semi_major_axis: Measure::new(6378137.0, UnitOfMeasure::metre()),
+            shape: crate::iso19111::datum::EllipsoidShape::InverseFlattening(298.257222101),
         }
     }
 
@@ -502,8 +570,8 @@ mod tests {
 
     #[test]
     fn lcc_2sp_with_swapped_standard_parallels_is_equivalent() {
-        assert!(lcc(25.0, 60.0).is_equivalent_to(&lcc(60.0, 25.0), false));
-        assert!(!lcc(25.0, 60.0).is_equivalent_to(&lcc(26.0, 60.0), false));
+        assert!(lcc(25.0, 60.0).is_equivalent_to(&lcc(60.0, 25.0), &grs80(), &grs80()));
+        assert!(!lcc(25.0, 60.0).is_equivalent_to(&lcc(26.0, 60.0), &grs80(), &grs80()));
     }
 
     #[test]
@@ -515,7 +583,7 @@ mod tests {
             0.0,
             UnitOfMeasure::metre(),
         ));
-        assert!(with_false_easting.is_equivalent_to(&lcc(25.0, 60.0), false));
+        assert!(with_false_easting.is_equivalent_to(&lcc(25.0, 60.0), &grs80(), &grs80()));
 
         with_false_easting.parameter_values[3] = parameter(
             "Easting at false origin",
@@ -523,6 +591,6 @@ mod tests {
             500000.0,
             UnitOfMeasure::metre(),
         );
-        assert!(!with_false_easting.is_equivalent_to(&lcc(25.0, 60.0), false));
+        assert!(!with_false_easting.is_equivalent_to(&lcc(25.0, 60.0), &grs80(), &grs80()));
     }
 }

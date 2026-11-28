@@ -176,7 +176,7 @@ impl MeridianDistance {
     }
 }
 
-pub(super) fn tsfn(phi: f64, sin_phi: f64, e: f64) -> f64 {
+pub(crate) fn tsfn(phi: f64, sin_phi: f64, e: f64) -> f64 {
     let cos_phi = phi.cos();
     (e * (e * sin_phi).atanh()).exp()
         * if sin_phi > 0.0 {
@@ -186,7 +186,7 @@ pub(super) fn tsfn(phi: f64, sin_phi: f64, e: f64) -> f64 {
         }
 }
 
-pub(super) fn msfn(sin_phi: f64, cos_phi: f64, es: f64) -> f64 {
+pub(crate) fn msfn(sin_phi: f64, cos_phi: f64, es: f64) -> f64 {
     cos_phi / (1.0 - es * sin_phi * sin_phi).sqrt()
 }
 

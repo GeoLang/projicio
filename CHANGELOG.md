@@ -43,6 +43,11 @@ All notable changes to this project will be documented in this file.
 - 2026-11-28: projicio is licensed under MPL-2.0, was AGPL-3.0-or-later. `deny.toml` no
   longer allows AGPL dependencies. The README keeps the overview and quick start, and the
   detailed sections moved to `docs/guide.md`.
+- 2026-11-28: the registry keeps every float as the double proj.db stores, which is the
+  value PROJ's `AuthorityFactory` reads, where it kept 15 significant digits. WKT1
+  written from the registry now has projinfo's Paris meridian in grads (2.33722917) and
+  Everest 1830 inverse flattening in Indian feet (300.801725543355). The format version
+  stays 2.
 - 2026-11-27: the 23 Lambert Azimuthal Equal Area and Equidistant Cylindrical EPSG
   codes, EPSG:3035 and EPSG:4087 among them, take projicio's own path through
   `from_epsg_method` instead of proj4rs. proj4rs has PROJ's formulas from before 9.7's
@@ -77,6 +82,22 @@ All notable changes to this project will be documented in this file.
   `affine.cpp` and `singleoperation.cpp`. Time-dependent methods raise without a
   coordinate epoch. `examples/transformation_batch.rs` runs one case per stdin line.
   `Transform` does not use it yet.
+- 2026-11-27: `iso19111::Crs::from_wkt` reads WKT1 (GDAL and ESRI) and WKT2 (2015 and
+  2019) into the ISO 19111 model, and `Crs::to_wkt` writes all four as PROJ 9.8.1 does,
+  ported from its io.cpp. WKT1 TOWGS84 reads as a BoundCRS to WGS 84. An ESRI projected
+  3D CRS such as EPSG:9895 writes as `PROJCS[...],VERTCS[...]`, and an ESRI `VERTCS`
+  holding a geodetic `DATUM` after a `GEOGCS` or `PROJCS` reads as the 3D CRS PROJ makes
+  of it. Vertical, compound, engineering, temporal, parametric and derived CRSs raise
+  `UnsupportedCrs` naming the kind. `is_equivalent_to` matches LCC 1SP with 2SP and Mercator A with B through
+  `Conversion::convert_to_other_method`, and ignores the base axis order of a projected
+  CRS whose base came without axes. ESRI names come from `data/esri_names.tsv`, generated
+  from proj.db by `tools/gen-wkt-tables`. Coordinate systems, datum names and projected
+  CRSs the reader takes from the registry come from `authority_factory`, so a WKT2 2019
+  base CRS has PROJ's "degree" unit, an ESRI ETRS89 projected CRS that EPSG moved to a
+  national realization such as ETRS89-NOR takes that base, and a WKT1 datum name that
+  matches nothing takes the name of its AUTHORITY datum. `examples/wkt_round_trip.rs`
+  checks one CRS per record against projinfo, writing WKT1 from the registry and WKT2
+  from the PROJJSON, and comparing each WKT read with projinfo's PROJJSON of the same WKT.
 - 2026-11-27: PROJ's gie tests and the IOGP GIGS datasets run against `Transform`, with
   `examples/gie_report.rs` printing passes, failures and skip reasons per file, and
   `tests/proj_gie.rs` failing when a case listed in `tests/data/gie_passing.txt` stops

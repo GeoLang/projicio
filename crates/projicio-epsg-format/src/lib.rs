@@ -364,8 +364,6 @@ pub mod read {
 }
 
 /// Little-endian write primitives.
-///
-/// Float canonicalization is generator policy and lives with the generator.
 pub mod write {
     use super::{
         DECIMAL_ABSENT_MARKER, DECIMAL_EXPONENT_BIAS, DECIMAL_EXPONENT_BITS,

@@ -296,5 +296,6 @@ pub(crate) fn intermediate_geographic_crs(
         domains,
         datum,
         coordinate_system,
+        coordinate_system_is_implicit: false,
     })
 }

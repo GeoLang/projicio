@@ -189,10 +189,9 @@ fn paris_meridian_is_in_grads() {
     assert_eq!(paris.name, "Paris");
     assert_eq!(paris.longitude.value, 2.596_921_3);
     assert_eq!(paris.longitude.unit.name, "grad");
-    // the registry keeps 15 significant digits of proj.db's factor
     assert_eq!(
-        format!("{:.14e}", paris.longitude.unit.conversion_to_si),
-        format!("{:.14e}", 0.015_707_963_267_948_95)
+        paris.longitude.unit.conversion_to_si,
+        0.015_707_963_267_948_95
     );
 
     let Crs::Geographic(ntf_paris) = create_coordinate_reference_system(4807).unwrap() else {

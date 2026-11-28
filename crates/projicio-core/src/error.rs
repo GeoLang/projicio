@@ -16,6 +16,12 @@ pub enum Error {
     #[error("unsupported CRS: {0}")]
     UnsupportedCrs(String),
 
+    #[error("invalid WKT: {0}")]
+    InvalidWkt(String),
+
+    #[error("cannot write WKT: {0}")]
+    UnsupportedWkt(String),
+
     #[error("invalid coordinate: {0}")]
     InvalidCoordinate(String),
 

@@ -1,2 +1,4 @@
 # git on windows checks text files out with crlf
 crates/projicio-core/tests/data/projjson/*.json text eol=lf
+crates/projicio-core/tests/data/wkt/** text eol=lf
+crates/projicio-core/data/esri_names.tsv text eol=lf

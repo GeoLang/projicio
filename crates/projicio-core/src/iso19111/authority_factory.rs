@@ -354,6 +354,7 @@ pub fn create_coordinate_reference_system(code: u32) -> Result<Crs, Error> {
             domains,
             datum: create_geodetic_datum_or_ensemble(datum_code)?,
             coordinate_system,
+            coordinate_system_is_implicit: false,
         })),
         (
             CrsDefinitionKind::Geodetic {
@@ -1326,7 +1327,10 @@ fn invert_in_place(chain: &mut Vec<ChainStep>, index: usize) -> Result<(), Error
 
 fn conversion_matches_projected(conversion: &Conversion, crs: &Crs) -> bool {
     match crs {
-        Crs::Projected(projected) => conversion.is_equivalent_to(&projected.conversion, false),
+        Crs::Projected(projected) => {
+            let ellipsoid = projected.base_crs.datum.ellipsoid();
+            conversion.is_equivalent_to(&projected.conversion, ellipsoid, ellipsoid)
+        }
         Crs::Geographic(_) | Crs::Geodetic(_) | Crs::Bound(_) => false,
     }
 }

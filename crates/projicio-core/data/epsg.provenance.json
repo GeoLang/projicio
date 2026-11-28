@@ -13,12 +13,12 @@
     "file_name": "proj.db",
     "epsg_version": "v12.029",
     "proj_version": "9.8.1",
-    "normalized_content_sha256": "sha256:49197ca1b79b30f0c5f2374db0a73e7ce0ac3fd99d2478cd36ee977f30a939d3"
+    "normalized_content_sha256": "sha256:c066cae7946fe94a7e4e565f8b43537e2e00a491e8fa033e394f17c312d4dda2"
   },
   "output": {
     "file_name": "epsg.bin",
-    "byte_len": 1047879,
-    "sha256": "sha256:c5a4d63d81f0a395b449f707f2bfb0d5d015fdc8512f3cf6e194783f9275e40b"
+    "byte_len": 1047886,
+    "sha256": "sha256:ef3a7f18263473dc95b406bee1f43c67e2b3a7a7ebb49ce7b6138570ce280ba2"
   },
   "counts": {
     "crs": 7724,

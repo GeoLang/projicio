@@ -20,6 +20,7 @@ pub struct GeographicCrs {
     pub domains: Vec<ObjectDomain>,
     pub datum: GeodeticDatum,
     pub coordinate_system: EllipsoidalCs,
+    pub coordinate_system_is_implicit: bool,
 }
 
 impl GeographicCrs {
@@ -86,15 +87,25 @@ pub struct ProjectedCrs {
 
 impl ProjectedCrs {
     pub fn is_equivalent_to(&self, other: &Self, criterion: Criterion) -> bool {
-        // TODO: PROJ ignores base axis order under EQUIVALENT when a base CRS came from WKT1 or a PROJ string without axes
-        let both_sources_are_spheres = self.base_crs.datum.ellipsoid().is_sphere()
-            && other.base_crs.datum.ellipsoid().is_sphere();
+        // PROJ ignores the base axis order when either base CRS has an implicit coordinate system
+        let base_criterion = if criterion == Criterion::Equivalent
+            && (self.base_crs.coordinate_system_is_implicit
+                || other.base_crs.coordinate_system_is_implicit)
+        {
+            Criterion::EquivalentExceptAxisOrderGeogcrs
+        } else {
+            criterion
+        };
         self.coordinate_system
             .is_equivalent_to(&other.coordinate_system)
-            && self.base_crs.is_equivalent_to(&other.base_crs, criterion)
             && self
-                .conversion
-                .is_equivalent_to(&other.conversion, both_sources_are_spheres)
+                .base_crs
+                .is_equivalent_to(&other.base_crs, base_criterion)
+            && self.conversion.is_equivalent_to(
+                &other.conversion,
+                self.base_crs.datum.ellipsoid(),
+                other.base_crs.datum.ellipsoid(),
+            )
     }
 }
 

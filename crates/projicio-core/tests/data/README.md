@@ -16,3 +16,9 @@
     cct -I -d 12 -o <name>.cct_inverse.txt $pipeline <name>.cct_forward.txt
 
 `epsg_<code>.*` use the pipeline `projinfo -k operation EPSG:<code> -o PROJ -q --single-line` prints, which reads PROJ's GeoTIFF grids from proj-data. The test reads the same grid in its older form (`ntf_r93.gsb`, `conus`, `ntv1_can.dat`), and cct gives the same output for those files to 1e-10 degrees.
+
+`wkt/` is projinfo 9.8.1 output (EPSG v12.029) saved with a shell redirect: `projinfo EPSG:<code> -o <dialect> -q > wkt/<dialect>/epsg_<code>.wkt`, PROJJSON in `wkt/projjson`. The non-EPSG files name the projinfo input in a comment beside the test that reads them.
+
+Files ending `_reread` are projinfo given that fixture back (or, for WKT1 ESRI, the PROJJSON fixture), where its output differs from the one it writes from proj.db: `projinfo "$(cat wkt/<dialect>/epsg_<code>.wkt)" -o <dialect> -q`.
+
+`wkt/projjson/epsg_<code>_from_<dialect>.json` is projinfo reading that dialect's fixture to PROJJSON: `projinfo -o PROJJSON -q "$(cat wkt/<dialect>/epsg_<code>.wkt)"`.

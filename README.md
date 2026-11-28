@@ -21,9 +21,9 @@ Transforms coordinates between 5935 EPSG codes without linking C PROJ or GDAL.
   at runtime (OSTN15, NAD27 and others)
 - **EPSG metadata**: names, deprecation, datums and areas of use, plus the definitions and
   coordinate operations behind every current EPSG CRS, generated from PROJ 9.8.1's proj.db
-- **ISO 19111 model ported from PROJ**: PROJJSON read and write, an authority factory,
-  operation selection as `proj_create_crs_to_crs` does it, and datum and grid
-  transformations by EPSG method. `Transform` does not use these yet
+- **ISO 19111 model ported from PROJ**: PROJJSON, WKT1 and WKT2 read and write, an
+  authority factory, operation selection as `proj_create_crs_to_crs` does it, and datum and
+  grid transformations by EPSG method. `Transform` does not use these yet
 - **CLI and WebAssembly bindings**, grid registration included
 - **Pure Rust**: no C dependencies and no data files to install
 
@@ -69,6 +69,7 @@ over every current EPSG CRS and operation. The current scores are in the
   too, and OSTN15
 - [Accuracy](docs/guide.md#accuracy): parity tests, proj-agreement and PROJ's gie tests
 - [Architecture](docs/guide.md#architecture) and [supported CRSs](docs/guide.md#supported-crs)
+- [WKT in the ISO 19111 model](docs/guide.md#wkt-in-the-iso-19111-model)
 - [Datum transforms](docs/guide.md#datum-transforms) and
   [choosing an operation between two CRSs](docs/guide.md#choosing-an-operation-between-two-crss)
 

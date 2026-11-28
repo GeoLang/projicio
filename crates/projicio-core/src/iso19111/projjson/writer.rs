@@ -323,7 +323,7 @@ fn write_prime_meridian(f: &mut Formatter, prime_meridian: &PrimeMeridian) {
     );
 }
 
-fn rounded_epoch_in_decimal_year(year: f64) -> f64 {
+pub(crate) fn rounded_epoch_in_decimal_year(year: f64) -> f64 {
     // PROJ rounds away the error of a year to second to year round trip
     if (1000.0 * year - (1000.0 * year).round()).abs() <= 1e-3 {
         return (1000.0 * year).round() / 1000.0;

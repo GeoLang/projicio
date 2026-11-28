@@ -3,6 +3,7 @@
 use super::extent::AreaOfUse;
 use crate::Error;
 use crate::iso19111::coordinate_operation::{build_operation_name, modified_identifiers};
+use crate::iso19111::datum::Ellipsoid;
 use crate::iso19111::metadata::Identifier;
 use crate::iso19111::operation::Conversion;
 use crate::iso19111::{ConcatenatedOperation, CoordinateOperation, Criterion, Crs};
@@ -477,9 +478,14 @@ pub(crate) fn crs_equivalent(crs: &Crs, other: &Crs) -> bool {
     crs.is_equivalent_to(other, Criterion::Equivalent)
 }
 
-fn is_sphere_based(crs: &Crs) -> bool {
-    crs.extract_geographic_crs()
-        .is_some_and(|geographic| geographic.datum.ellipsoid().is_sphere())
+fn source_ellipsoid(crs: &Crs) -> &Ellipsoid {
+    match crs {
+        Crs::Geographic(geographic) => geographic.datum.ellipsoid(),
+        Crs::Geodetic(geodetic) => geodetic.datum.ellipsoid(),
+        // proj compares an InverseConversion through its forward conversion, whose source is the base CRS
+        Crs::Projected(projected) => projected.base_crs.datum.ellipsoid(),
+        Crs::Bound(bound) => source_ellipsoid(&bound.source_crs),
+    }
 }
 
 fn conversions_equivalent(
@@ -490,7 +496,8 @@ fn conversions_equivalent(
 ) -> bool {
     conversion.is_equivalent_to(
         other,
-        is_sphere_based(source) && is_sphere_based(other_source),
+        source_ellipsoid(source),
+        source_ellipsoid(other_source),
     )
 }
 

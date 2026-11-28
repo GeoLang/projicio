@@ -603,6 +603,7 @@ fn build_geographic_crs(j: &Object) -> Result<GeographicCrs, Error> {
         domains: usage.domains,
         datum,
         coordinate_system,
+        coordinate_system_is_implicit: false,
     })
 }
 
@@ -706,7 +707,10 @@ fn build_conversion(j: &Object) -> Result<Conversion, Error> {
     })
 }
 
-fn bound_crs_transformation_source(source_crs: &Crs, target_crs: &Crs) -> Result<Crs, Error> {
+pub(crate) fn bound_crs_transformation_source(
+    source_crs: &Crs,
+    target_crs: &Crs,
+) -> Result<Crs, Error> {
     if !matches!(target_crs, Crs::Geographic(_)) {
         return Ok(source_crs.clone());
     }
@@ -737,6 +741,7 @@ fn bound_crs_transformation_source(source_crs: &Crs, target_crs: &Crs) -> Result
             dynamic: None,
         })),
         coordinate_system: source_geographic.coordinate_system.clone(),
+        coordinate_system_is_implicit: false,
     }))
 }
 

@@ -10,10 +10,28 @@ fn main() -> std::io::Result<()> {
     for line in std::io::stdin().lock().lines() {
         let line = line?;
         let fields: Vec<&str> = line.split_whitespace().collect();
-        let [from, to, x, y] = fields[..] else {
-            panic!("want `from to x y`, got {line:?}");
+        let [from, to, values @ ..] = &fields[..] else {
+            panic!("want `from to c1 c2 [c3 [epoch]]`, got {line:?}");
         };
-        let (x, y): (f64, f64) = (x.parse().unwrap(), y.parse().unwrap());
+        let values: Vec<f64> = values.iter().map(|v| v.parse().unwrap()).collect();
+        let (x, y) = match values[..] {
+            [x, y] => (x, y),
+            [_, _, _] => {
+                writeln!(
+                    out,
+                    "error heights are not supported, Transform converts two coordinates"
+                )?;
+                continue;
+            }
+            [_, _, _, _] => {
+                writeln!(
+                    out,
+                    "error coordinate epochs are not supported, Transform has no epoch"
+                )?;
+                continue;
+            }
+            _ => panic!("want `from to c1 c2 [c3 [epoch]]`, got {line:?}"),
+        };
         let transform = transforms
             .entry((from.to_string(), to.to_string()))
             .or_insert_with(|| Transform::new(from, to).map_err(|e| e.to_string()));

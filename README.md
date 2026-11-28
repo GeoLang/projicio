@@ -484,8 +484,9 @@ epoch in decimal years. Without one they are left out, where PROJ uses the refer
 `create_operations(source, target, &context)` returns the sorted list for an
 `OperationContext`, the subset of PROJ's `CoordinateOperationContext` its tests use.
 `examples/candidate_operations_batch.rs` reads `from to x y` lines as
-`examples/transform_batch.rs` does, so `tools/proj-agreement/compare.py --projicio-bin` scores
-it, and `examples/gie_report.rs --candidate-operations` runs the `crs_src`/`crs_dst` gie cases
+`examples/transform_batch.rs` does and converts with `convert_allowing_ballpark`, since `cs2cs`
+answers with a ballpark operation where no other exists, so `tools/proj-agreement/compare.py
+--projicio-bin` scores it, and `examples/gie_report.rs --candidate-operations` runs the `crs_src`/`crs_dst` gie cases
 on it.
 
 Left out: vertical and compound CRSs, point motion between epochs, CRSs identified by name

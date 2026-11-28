@@ -40,7 +40,9 @@ fn convert(operations: &CandidateOperations, x: f64, y: f64) -> Result<(f64, f64
     } else {
         [x, y, 0.0]
     };
-    let [first, second, _] = operations.convert(native).map_err(|e| e.to_string())?;
+    let [first, second, _] = operations
+        .convert_allowing_ballpark(native)
+        .map_err(|e| e.to_string())?;
     let (x, y) = if northing_first(target) {
         (second, first)
     } else {

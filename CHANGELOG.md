@@ -13,6 +13,15 @@ All notable changes to this project will be documented in this file.
   `convert_allowing_ballpark` returns it, and `at_epoch` makes time-dependent operations
   candidates. `examples/candidate_operations_batch.rs` runs it under `compare.py`.
   `Transform` does not use it yet.
+- 2026-11-27: `tools/proj-agreement` measures the full scope: from EPSG:4326, or
+  EPSG:4979 for targets with a height, to all 7199 current EPSG CRSs of every kind, and
+  all 2782 current EPSG operations, with heights, geocentric coordinates and the
+  coordinate epoch 2025.0 for dynamic CRSs and time-dependent operations. A case passes
+  within 1 cm of cs2cs or when both refuse. The two earlier scores stay as sub-scores.
+  The `transform_batch` example reads `from to c1 c2 [c3 [epoch]]` and answers `error`
+  for lines with a height or an epoch. `candidate_operations_batch` converts with
+  `convert_allowing_ballpark`, since cs2cs answers with a ballpark operation where no other
+  exists.
 - 2026-11-27: `iso19111::authority_factory` builds CRSs, datums, ensembles, ellipsoids,
   prime meridians, coordinate systems, units, conversions and coordinate operations from
   the registry, following PROJ's `AuthorityFactory`. `iso19111::CoordinateOperation` covers

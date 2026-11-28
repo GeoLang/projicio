@@ -26,6 +26,10 @@ Transforms coordinates between 5935 EPSG codes without linking C PROJ or GDAL.
 - **Datum transformations by EPSG method**: `transformation_from_epsg_method` runs the
   Helmert, Molodensky-Badekas, longitude rotation and geographic offset methods of current
   EPSG operations, ported from PROJ. `Transform` does not route through it yet
+- **Grid transformations by EPSG method**: `grid_transformation_from_epsg_method` runs the
+  NTv2, NTv1 and NADCON methods on `horizontal_shift_grid`, projicio's own NTv2, NTv1 and
+  CTable2 readers, ported from PROJ. GeoTIFF grids are not read yet, and `Transform` does
+  not route through it yet
 - **Ellipsoids**: WGS84, GRS80, Clarke 1866, International 1924, and a sphere of WGS84 radius
 - **EPSG code dispatch**: `Transform::new("EPSG:4326", "EPSG:3857")`, or a proj4 projstring starting with `+` on either side
 - **WKT input**: `Transform::new` takes a `.prj` sidecar's WKT (1 or 2) on either side,
@@ -316,6 +320,12 @@ PROJ 9.8.1 (`.github/workflows/parity.yml`), and locally it runs with:
 ```bash
 PROJICIO_CS2CS=/usr/bin/cs2cs cargo test -p projicio-core --test proj_parity -- --ignored
 ```
+
+`tools/proj-agreement` measures agreement with `cs2cs` over every current EPSG CRS and
+operation, see its README. On its two original scores, `CandidateOperations` with
+`convert_allowing_ballpark` lands within 1 cm of `cs2cs` for 86.4% of the CRSs reached from
+EPSG:4326 and 68.3% of the operations between geographic 2D CRSs. Most of the remaining
+cases need a GeoTIFF grid, or are Helmert and concatenated operations that still differ.
 
 Between two different datums the accuracy depends on what the definition carries: a
 registered grid where one is named, otherwise the 7-parameter Helmert shift in the

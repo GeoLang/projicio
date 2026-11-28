@@ -123,6 +123,7 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 <li>PROJJSON read and written as PROJ 9.8.1 writes it, into an ISO 19111 model that tells NAD83 from WGS 84, for CRSs, transformations and concatenated operations. <code>Transform</code> does not take it yet</li>
 <li>An authority factory that builds those objects from the registry by EPSG or PROJ code, as PROJ's does</li>
 <li>WebAssembly bindings, grid registration included</li>
+<li>Agreement with PROJ's <code>cs2cs</code> measured by <code>tools/proj-agreement</code> over every current EPSG CRS and operation. Today 86.4% of CRSs reached from EPSG:4326 and 68.3% of operations between geographic 2D CRSs come within 1 cm through <code>CandidateOperations</code></li>
 </ul>
 </div>
 </div>

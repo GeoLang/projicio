@@ -40,6 +40,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- 2026-11-28: projicio is licensed under MPL-2.0, was AGPL-3.0-or-later. `deny.toml` no
+  longer allows AGPL dependencies. The README keeps the overview and quick start, and the
+  detailed sections moved to `docs/guide.md`.
 - 2026-11-27: the 23 Lambert Azimuthal Equal Area and Equidistant Cylindrical EPSG
   codes, EPSG:3035 and EPSG:4087 among them, take projicio's own path through
   `from_epsg_method` instead of proj4rs. proj4rs has PROJ's formulas from before 9.7's

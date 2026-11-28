@@ -161,7 +161,7 @@ fn test_point_outside_the_grid_errors_cleanly() {
 ///
 /// This is the shape of a real OSTN15 setup. With the OS file registered as
 /// "OSTN15_NTv2_OSGBtoETRS.gsb" this is the string a user writes, and the projection
-/// parameters here are the published EPSG:27700 ones. See the README for how to obtain
+/// parameters here are the published EPSG:27700 ones. See docs/guide.md for how to obtain
 /// the real file and validate against OS test points, which cannot be done here because
 /// projicio embeds no grid data.
 fn bng_via_grid(grid_name: &str) -> String {

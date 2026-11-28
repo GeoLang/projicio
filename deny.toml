@@ -15,7 +15,6 @@ allow = [
     "Unicode-3.0",
     "Unicode-DFS-2016",
     "Zlib",
-    "AGPL-3.0-or-later",
     "OpenSSL",
     "CC0-1.0",
     "MPL-2.0",

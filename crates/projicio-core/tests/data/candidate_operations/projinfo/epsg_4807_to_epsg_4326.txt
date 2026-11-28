@@ -1,0 +1,2 @@
+Candidate operations found: 1
+EPSG:8094, NTF (Paris) to WGS 84 (1), 2.0 m, France - onshore - mainland and Corsica.

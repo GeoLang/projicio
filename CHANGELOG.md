@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- 2026-11-27: `operation_factory::CandidateOperations` lists the operations PROJ 9.8.1's
+  `proj_create_crs_to_crs` considers between two ISO 19111 CRSs and converts a point with the
+  one `proj_trans` picks there, ported from `coordinateoperationfactory.cpp`, `crs_to_crs.cpp`
+  and `trans.cpp`. `convert` raises where only a ballpark answer exists,
+  `convert_allowing_ballpark` returns it, and `at_epoch` makes time-dependent operations
+  candidates. `examples/candidate_operations_batch.rs` runs it under `compare.py`.
+  `Transform` does not use it yet.
 - 2026-11-27: `iso19111::authority_factory` builds CRSs, datums, ensembles, ellipsoids,
   prime meridians, coordinate systems, units, conversions and coordinate operations from
   the registry, following PROJ's `AuthorityFactory`. `iso19111::CoordinateOperation` covers

@@ -5,8 +5,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use gie::{
-    AxisTable, Case, Check, Coordinate, Direction, Failure, Outcome, SUITES, Setup, SkipReason,
-    gie_files, parse, run,
+    AxisTable, Case, Check, Coordinate, Direction, Engine, Failure, Outcome, SUITES, Setup,
+    SkipReason, gie_files, parse, run,
 };
 
 fn data() -> PathBuf {
@@ -102,7 +102,7 @@ fn expect_before_its_accept_reuses_the_previous_accept() {
     let case = case_at(&cases, 29);
     assert_eq!(case.accept, coordinate(&[55.0, 12.0, 10.0]));
     assert!(matches!(
-        run(case, &axes()),
+        run(case, &axes(), Engine::Transform),
         Outcome::Skipped(SkipReason::ThirdCoordinate)
     ));
 }
@@ -117,11 +117,11 @@ fn nonzero_height_or_time_is_skipped() {
         coordinate(&[-33.8623, 151.2077, 0.0, 2020.0])
     );
     assert!(matches!(
-        run(with_time, &axes),
+        run(with_time, &axes, Engine::Transform),
         Outcome::Skipped(SkipReason::Time)
     ));
     assert!(matches!(
-        run(case_at(&cases, 47), &axes),
+        run(case_at(&cases, 47), &axes, Engine::Transform),
         Outcome::Skipped(SkipReason::ThirdCoordinate)
     ));
 }
@@ -138,7 +138,7 @@ fn require_grid_applies_until_the_next_crs_pair() {
     let catalonia = case_at(&cases, 72);
     assert_eq!(catalonia.required_grids, ["es_cat_icgc_100800401.tif"]);
     assert!(matches!(
-        run(catalonia, &axes),
+        run(catalonia, &axes, Engine::Transform),
         Outcome::Skipped(SkipReason::RequiredGridNotRegistered)
     ));
 }
@@ -164,7 +164,7 @@ fn strict_continuation_lines_join_into_one_init_pipeline() {
         Check::Coordinate(coordinate(&[150.0, 80.0, 1214.137]))
     );
     assert!(matches!(
-        run(case, &axes()),
+        run(case, &axes(), Engine::Transform),
         Outcome::Skipped(SkipReason::ThirdCoordinate)
     ));
 
@@ -252,7 +252,7 @@ fn tolerance_unit_glued_to_the_number_reads_as_metres() {
     let case = case_at(&cases, 701);
     assert_eq!(case.tolerance, 1.0);
     assert!(matches!(
-        run(case, &axes()),
+        run(case, &axes(), Engine::Transform),
         Outcome::Skipped(SkipReason::ProjString)
     ));
 }
@@ -285,7 +285,7 @@ expect 20 10
 fn runner_converts_and_compares_in_each_crs_axis_order() {
     let cases = parse(WEB_MERCATOR).unwrap();
     let axes = axes();
-    let outcome = |line| run(case_at(&cases, line), &axes);
+    let outcome = |line| run(case_at(&cases, line), &axes, Engine::Transform);
 
     let forward = outcome(5);
     assert!(matches!(forward, Outcome::Passed), "{forward:?}");
@@ -322,7 +322,7 @@ fn every_listed_case_still_passes() {
             .entry(file.to_string())
             .or_insert_with(|| cases_of(file));
         let case = case_at(cases, line);
-        match run(case, &axes) {
+        match run(case, &axes, Engine::Transform) {
             Outcome::Passed => {}
             Outcome::Failed(failure) => regressions.push(format!(
                 "{file} line {line}: {failure}, tolerance {:.3e}",
@@ -340,4 +340,18 @@ fn every_listed_case_still_passes() {
         regressions.len(),
         regressions.join("\n")
     );
+}
+
+#[test]
+fn crs_pairs_run_on_candidate_operations() {
+    let cases = cases_of("proj-gie/epsg_no_grid.gie");
+    let axes = axes();
+    // line 16 is ETRS89 to ETRS89 / UTM zone 32N, line 59 KKJ to YKJ with northing first
+    for line in [16, 59] {
+        let outcome = run(case_at(&cases, line), &axes, Engine::CandidateOperations);
+        assert!(
+            matches!(outcome, Outcome::Passed),
+            "line {line}: {outcome:?}"
+        );
+    }
 }

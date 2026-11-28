@@ -25,6 +25,8 @@ mod error;
 mod fallback;
 pub mod grids;
 pub mod iso19111;
+#[cfg(feature = "registry")]
+pub mod operation_factory;
 mod projection;
 pub mod projstring;
 #[cfg(feature = "registry")]

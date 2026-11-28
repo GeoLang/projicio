@@ -234,6 +234,20 @@ pub fn operations_from(crs_code: u32) -> Vec<DirectedOperation> {
     .collect()
 }
 
+pub fn geodetic_crs_with_datum(datum_code: u32) -> Vec<u32> {
+    registry()
+        .crs_definitions
+        .iter()
+        .filter(|definition| {
+            matches!(
+                definition.kind,
+                CrsDefinitionKind::Geodetic { datum_code: code, .. } if code == datum_code
+            )
+        })
+        .map(|definition| definition.code)
+        .collect()
+}
+
 fn find_by_code<T>(records: &[T], code: u32, code_of: impl Fn(&T) -> u32) -> Option<&T> {
     let index = records.binary_search_by_key(&code, code_of).ok()?;
     Some(&records[index])

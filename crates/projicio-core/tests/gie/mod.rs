@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::path::Path;
 
+use projicio_core::operation_factory::CandidateOperations;
 use projicio_core::{Ellipsoid, Error, Transform, geodetic_to_geocentric, grids};
 
 pub const SUITES: [(&str, &str); 2] = [("GIGS", "gigs"), ("test/gie", "proj-gie")];
@@ -35,6 +36,12 @@ pub enum Setup {
     CrsPair { source: u32, target: u32 },
     InitPair { source: u32, target: u32 },
     ProjString,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Engine {
+    Transform,
+    CandidateOperations,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -668,16 +675,64 @@ fn within(error: f64, tolerance: f64) -> Outcome {
     }
 }
 
+enum Converter {
+    Transform(Transform),
+    CandidateOperations {
+        operations: Box<CandidateOperations>,
+        source_swap_axes: bool,
+        target_swap_axes: bool,
+    },
+}
+
+impl Converter {
+    fn new(engine: Engine, crs_pair: bool, source: &Side, target: &Side) -> Result<Self, Error> {
+        if engine == Engine::CandidateOperations && crs_pair {
+            return Ok(Converter::CandidateOperations {
+                operations: Box::new(CandidateOperations::from_epsg(source.code, target.code)?),
+                source_swap_axes: source.swap_axes,
+                target_swap_axes: target.swap_axes,
+            });
+        }
+        Ok(Converter::Transform(Transform::new(
+            &source.spec(),
+            &target.spec(),
+        )?))
+    }
+
+    fn convert(&self, (x, y): (f64, f64)) -> Result<(f64, f64), Error> {
+        match self {
+            Converter::Transform(transform) => transform.convert(x, y),
+            Converter::CandidateOperations {
+                operations,
+                source_swap_axes,
+                target_swap_axes,
+            } => {
+                // CandidateOperations takes and gives coordinates in each CRS's own axis order
+                let native = if *source_swap_axes {
+                    [y, x, 0.0]
+                } else {
+                    [x, y, 0.0]
+                };
+                let [first, second, _] = operations.convert(native)?;
+                Ok(if *target_swap_axes {
+                    (second, first)
+                } else {
+                    (first, second)
+                })
+            }
+        }
+    }
+}
+
 fn roundtrip_distance(
-    forward: &Transform,
+    forward: &Converter,
+    inverse: &Converter,
     source: &Side,
-    target: &Side,
     start: (f64, f64),
     trips: u32,
 ) -> Result<f64, Error> {
-    let inverse = Transform::new(&target.spec(), &source.spec())?;
-    let there = |(x, y): (f64, f64)| forward.convert(x, y);
-    let back = |(x, y): (f64, f64)| inverse.convert(x, y);
+    let there = |point: (f64, f64)| forward.convert(point);
+    let back = |point: (f64, f64)| inverse.convert(point);
     // proj_roundtrip takes half a step forward, trips - 1 full steps, then half a step back
     let mut point = there(start)?;
     for _ in 1..trips {
@@ -686,7 +741,8 @@ fn roundtrip_distance(
     Ok(source.distance(start, back(point)?))
 }
 
-pub fn run(case: &Case, axes: &AxisTable) -> Outcome {
+pub fn run(case: &Case, axes: &AxisTable, engine: Engine) -> Outcome {
+    let crs_pair = matches!(case.setup, Setup::CrsPair { .. });
     let (source, target) = match case.setup {
         Setup::CrsPair { source, target } => (axes.crs_side(source), axes.crs_side(target)),
         Setup::InitPair { source, target } => (axes.init_side(source), axes.init_side(target)),
@@ -710,8 +766,8 @@ pub fn run(case: &Case, axes: &AxisTable) -> Outcome {
         return Outcome::Skipped(SkipReason::ErrorCode);
     }
 
-    let forward = match Transform::new(&source.spec(), &target.spec()) {
-        Ok(transform) => transform,
+    let forward = match Converter::new(engine, crs_pair, &source, &target) {
+        Ok(converter) => converter,
         Err(_) if matches!(case.check, Check::Failure { .. }) => return Outcome::Passed,
         Err(Error::GridError(_)) => {
             return Outcome::Skipped(SkipReason::DefinitionGridNotRegistered);
@@ -720,19 +776,22 @@ pub fn run(case: &Case, axes: &AxisTable) -> Outcome {
     };
     let (x, y) = source.in_projicio_order(&case.accept);
     match &case.check {
-        Check::Coordinate(expected) => match forward.convert(x, y) {
+        Check::Coordinate(expected) => match forward.convert((x, y)) {
             Ok(output) => within(
                 target.distance(output, target.in_projicio_order(expected)),
                 case.tolerance,
             ),
             Err(error) => Outcome::Failed(Failure::Raised(error)),
         },
-        Check::Failure { .. } => match forward.convert(x, y) {
+        Check::Failure { .. } => match forward.convert((x, y)) {
             Ok(_) => Outcome::Failed(Failure::DidNotFail),
             Err(_) => Outcome::Passed,
         },
         Check::Roundtrip { trips, tolerance } => {
-            match roundtrip_distance(&forward, &source, &target, (x, y), *trips) {
+            let distance = Converter::new(engine, crs_pair, &target, &source).and_then(|inverse| {
+                roundtrip_distance(&forward, &inverse, &source, (x, y), *trips)
+            });
+            match distance {
                 Ok(distance) => within(distance, *tolerance),
                 Err(error) => Outcome::Failed(Failure::Raised(error)),
             }

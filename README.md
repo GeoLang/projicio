@@ -38,6 +38,9 @@ Transforms coordinates between 5935 EPSG codes without linking C PROJ or GDAL.
 - **Authority factory**: `iso19111::authority_factory` builds CRSs, datums and ensembles,
   ellipsoids, prime meridians, coordinate systems, units, conversions and coordinate operations
   from the registry by code, as PROJ's `AuthorityFactory` does
+- **Choosing an operation between two CRSs**: `operation_factory::CandidateOperations` lists
+  the operations PROJ's `proj_create_crs_to_crs` would consider between two ISO 19111 CRSs and
+  picks one per point as `proj_trans` does. `Transform` does not use it yet
 - **5935 EPSG codes**: national grids, State Plane, UTM on any datum, across both engines
 - **Reusable transforms**: build a `Transform` once and convert many coordinates through it.
   `convert_batch` is that loop, not a vectorised path. `Transform::path` reports which engine it resolved to
@@ -455,14 +458,49 @@ radians of it, as `cs2cs` does. The `datum_transformation` tests compare one ope
 method against `cct` running the pipeline `projinfo` prints, to 1 mm and 1e-9 degrees in
 both directions.
 
+## Choosing an operation between two CRSs
+
+`operation_factory::CandidateOperations::new(source, target)` takes two `iso19111::Crs` and
+`from_epsg(source_code, target_code)` two EPSG codes. It lists the candidate operations
+PROJ 9.8.1's `proj_create_crs_to_crs` builds with no options, ported from
+`coordinateoperationfactory.cpp`: registry operations in both directions, PROJ's own
+operations between EPSG CRSs, concatenated operations, pivots through other CRSs, the
+geographic offset PROJ falls back on, ordered as `filterAndSort` orders them. Known grids
+count as available while the list is built. No grid is read yet, so an operation needing one
+stays a candidate and is skipped when a point reaches it, as `cs2cs` does with a missing grid.
+
+`convert([x, y, z])` takes and returns coordinates in each CRS's own axis order and units
+(EPSG:4326 is latitude first, EPSG:4807 is in grads). It picks the operation `proj_trans`
+picks at that point: the most accurate one whose area of use holds the point, the next one
+when it fails, and an operation that needs no grid when none applies. `convert` raises
+`Error::NoOperation` when that answer is a ballpark one or comes from an operation whose area
+does not hold the point. `convert_allowing_ballpark` returns PROJ's answer there, which for
+the geographic offset keeps latitude and longitude. A 2D CRS's third coordinate is a height
+that a datum shift keeps, as PROJ's push and pop of the height does.
+
+Time-dependent operations are candidates only with `at_epoch(source, target, epoch)`, the
+epoch in decimal years. Without one they are left out, where PROJ uses the reference epoch.
+
+`create_operations(source, target, &context)` returns the sorted list for an
+`OperationContext`, the subset of PROJ's `CoordinateOperationContext` its tests use.
+`examples/candidate_operations_batch.rs` reads `from to x y` lines as
+`examples/transform_batch.rs` does, so `tools/proj-agreement/compare.py --projicio-bin` scores
+it, and `examples/gie_report.rs --candidate-operations` runs the `crs_src`/`crs_dst` gie cases
+on it.
+
+Left out: vertical and compound CRSs, point motion between epochs, CRSs identified by name
+only, NKG operations, datum publication dates in the pivot searches, and PROJ's count of
+steps in its pipeline string as a sort criterion.
+
 ## Credits
 
 The Cassini-Soldner, Hotine Oblique Mercator, American Polyconic, Equal Earth and Laborde
 implementations are ported from [proj-rust](https://github.com/roteiro-gis/proj-rust), used under
 its MIT OR Apache-2.0 license.
 
-The projections behind `from_epsg_method` and the datum transformations behind
-`transformation_from_epsg_method` are ported from [PROJ](https://github.com/OSGeo/PROJ),
+The projections behind `from_epsg_method`, the datum transformations behind
+`transformation_from_epsg_method` and the operation search behind `CandidateOperations` are
+ported from [PROJ](https://github.com/OSGeo/PROJ),
 used under its MIT license, kept in [LICENSES/PROJ-MIT.txt](LICENSES/PROJ-MIT.txt).
 
 ## License

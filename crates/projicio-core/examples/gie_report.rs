@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use gie::{AxisTable, Case, Failure, Outcome, SUITES, SkipReason, gie_files, parse, run};
+use gie::{AxisTable, Case, Engine, Failure, Outcome, SUITES, SkipReason, gie_files, parse, run};
 
 struct Largest {
     error: f64,
@@ -105,14 +105,14 @@ fn read_suite(data: &Path, directory: &str) -> Vec<(String, Vec<Case>)> {
         .collect()
 }
 
-fn print_report(data: &Path, axes: &AxisTable) {
+fn print_report(data: &Path, axes: &AxisTable, engine: Engine) {
     for (title, directory) in SUITES {
         let suite = read_suite(data, directory);
         let mut total = Tally::default();
         for (file, cases) in &suite {
             let mut tally = Tally::default();
             for case in cases {
-                let outcome = run(case, axes);
+                let outcome = run(case, axes, engine);
                 tally.add(&format!("line {}", case.line), case, &outcome);
                 total.add(&format!("{file} line {}", case.line), case, &outcome);
             }
@@ -129,11 +129,11 @@ fn print_report(data: &Path, axes: &AxisTable) {
     }
 }
 
-fn print_manifest(data: &Path, axes: &AxisTable) {
+fn print_manifest(data: &Path, axes: &AxisTable, engine: Engine) {
     for (_, directory) in SUITES {
         for (file, cases) in read_suite(data, directory) {
             for case in &cases {
-                if matches!(run(case, axes), Outcome::Passed) {
+                if matches!(run(case, axes, engine), Outcome::Passed) {
                     println!("{file} {}", case.line);
                 }
             }
@@ -142,13 +142,22 @@ fn print_manifest(data: &Path, axes: &AxisTable) {
 }
 
 fn main() {
-    let usage = "usage: gie_report <data directory> [--manifest]";
+    let usage = "usage: gie_report <data directory> [--manifest] [--candidate-operations]";
     let mut args = std::env::args().skip(1);
     let data = PathBuf::from(args.next().expect(usage));
     let axes = AxisTable::load(&data.join("crs_axes.tsv")).unwrap_or_else(|e| panic!("{e}"));
-    match args.next().as_deref() {
-        None => print_report(&data, &axes),
-        Some("--manifest") => print_manifest(&data, &axes),
-        Some(other) => panic!("unknown argument {other:?}, {usage}"),
+    let mut manifest = false;
+    let mut engine = Engine::Transform;
+    for flag in args {
+        match flag.as_str() {
+            "--manifest" => manifest = true,
+            "--candidate-operations" => engine = Engine::CandidateOperations,
+            other => panic!("unknown argument {other:?}, {usage}"),
+        }
+    }
+    if manifest {
+        print_manifest(&data, &axes, engine);
+    } else {
+        print_report(&data, &axes, engine);
     }
 }

@@ -1,0 +1,54 @@
+Candidate operations found: 53
+EPSG:1188, NAD83 to WGS 84 (1), 4.0 m, North America - onshore and offshore: Canada - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon. United States (USA) - Alabama; Alaska (mainland); Arizona; Arkansas; California; Colorado; Connecticut; Delaware; Florida; Georgia; Idaho; Illinois; Indiana; Iowa; Kansas; Kentucky; Louisiana; Maine; Maryland; Massachusetts; Michigan; Minnesota; Mississippi; Missouri; Montana; Nebraska; Nevada; New Hampshire; New Jersey; New Mexico; New York; North Carolina; North Dakota; Ohio; Oklahoma; Oregon; Pennsylvania; Rhode Island; South Carolina; South Dakota; Tennessee; Texas; Utah; Vermont; Virginia; Washington; West Virginia; Wisconsin; Wyoming.
+DERIVED_FROM(EPSG):1696, NAD83 to WGS 84 (6), 1.5 m, Canada - Quebec., at least one grid missing
+EPSG:1252, NAD83 to WGS 84 (3), 4.0 m, United States (USA) - Hawaii - main islands onshore and offshore.
+DERIVED_FROM(EPSG):1702, NAD83 to WGS 84 (8), 1.5 m, Canada - Alberta., at least one grid missing
+DERIVED_FROM(EPSG):1697, NAD83 to WGS 84 (7), 1.5 m, Canada - Saskatchewan., at least one grid missing
+DERIVED_FROM(EPSG):1734, NAD83 to WGS 84 (38), 2.0 m, United States (USA) - Texas east of 100°W., at least one grid missing
+DERIVED_FROM(EPSG):1735, NAD83 to WGS 84 (39), 2.0 m, United States (USA) - Texas west of 100°W., at least one grid missing
+DERIVED_FROM(EPSG):1714, NAD83 to WGS 84 (18), 2.0 m, United States (USA) - Florida., at least one grid missing
+DERIVED_FROM(EPSG):1715, NAD83 to WGS 84 (19), 2.0 m, United States (USA) - Idaho and Montana - east of 113°W., at least one grid missing
+EPSG:1251, NAD83 to WGS 84 (2), 8.0 m, United States (USA) - Alaska - Aleutian Islands onshore.
+DERIVED_FROM(EPSG):1737, NAD83 to WGS 84 (41), 2.0 m, United States (USA) - Oregon and Washington., at least one grid missing
+DERIVED_FROM(EPSG):1722, NAD83 to WGS 84 (26), 2.0 m, United States (USA) - Michigan., at least one grid missing
+DERIVED_FROM(EPSG):1739, NAD83 to WGS 84 (43), 2.0 m, United States (USA) - California north of 36.5°N., at least one grid missing
+DERIVED_FROM(EPSG):1744, NAD83 to WGS 84 (48), 2.0 m, United States (USA) - Nevada., at least one grid missing
+DERIVED_FROM(EPSG):1710, NAD83 to WGS 84 (14), 2.0 m, United States (USA) - Minnesota., at least one grid missing
+DERIVED_FROM(EPSG):1726, NAD83 to WGS 84 (30), 2.0 m, United States (USA) - New Mexico., at least one grid missing
+DERIVED_FROM(EPSG):1728, NAD83 to WGS 84 (32), 2.0 m, United States (USA) - Arizona., at least one grid missing
+DERIVED_FROM(EPSG):1727, NAD83 to WGS 84 (31), 2.0 m, United States (USA) - New York., at least one grid missing
+DERIVED_FROM(EPSG):1750, NAD83 to WGS 84 (54), 2.0 m, United States (USA) - California south of 36.5°N, at least one grid missing
+DERIVED_FROM(EPSG):1711, NAD83 to WGS 84 (15), 2.0 m, United States (USA) - Missouri., at least one grid missing
+DERIVED_FROM(EPSG):1730, NAD83 to WGS 84 (34), 2.0 m, United States (USA) - Oklahoma., at least one grid missing
+DERIVED_FROM(EPSG):1738, NAD83 to WGS 84 (42), 2.0 m, United States (USA) - Wisconsin., at least one grid missing
+DERIVED_FROM(EPSG):1712, NAD83 to WGS 84 (16), 2.0 m, United States (USA) - Colorado., at least one grid missing
+DERIVED_FROM(EPSG):1716, NAD83 to WGS 84 (20), 2.0 m, United States (USA) - Idaho and Montana - west of 113°W., at least one grid missing
+DERIVED_FROM(EPSG):1740, NAD83 to WGS 84 (44), 2.0 m, United States (USA) - Wyoming., at least one grid missing
+DERIVED_FROM(EPSG):15835, NAD83 to WGS 84 (55), 2.0 m, United States (USA) - North Carolina - counties of Alamance; Alexander; Alleghany; Anson; Ashe; Avery; Beaufort; Bertie; Bladen; Brunswick; Buncombe; Burke; Cabarrus; Caldwell; Camden; Carteret; Caswell; Catawba; Chatham; Cherokee; Chowan; Clay; Cleveland; Columbus; Craven; Cumberland; Currituck; Dare; Davidson; Davie; Duplin; Durham; Edgecombe; Forsyth; Franklin; Gaston; Gates; Graham; Granville; Greene; Guilford; Halifax; Harnett; Haywood; Henderson; Hertford; Hoke; Hyde; Iredell; Jackson; Johnston; Jones; Lee; Lenoir; Lincoln; Macon; Madison; Martin; McDowell; Mecklenburg; Mitchell; Montgomery; Moore; Nash; New Hanover; Northampton; Onslow; Orange; Pamlico; Pasquotank; Pender; Perquimans; Person; Pitt; Polk; Randolph; Richmond; Robeson; Rockingham; Rowan; Rutherford; Sampson; Scotland; Stanly; Stokes; Surry; Swain; Transylvania; Tyrrell; Union; Vance; Wake; Warren; Washington; Watauga; Wayne; Wilkes; Wilson; Yadkin; Yancey., at least one grid missing
+DERIVED_FROM(EPSG):1724, NAD83 to WGS 84 (28), 2.0 m, United States (USA) - Nebraska - counties of Adams; Antelope; Arthur; Banner; Blaine; Boone; Box Butte; Boyd; Brown; Buffalo; Burt; Butler; Cass; Cedar; Chase; Cherry; Cheyenne; Clay; Colfax; Cuming; Custer; Dakota; Dawes; Dawson; Deuel; Dixon; Dodge; Douglas; Dundy; Fillmore; Franklin; Frontier; Furnas; Gage; Garden; Garfield; Gosper; Grant; Greeley; Hall; Hamilton; Harlan; Hayes; Hitchcock; Holt; Hooker; Howard; Jefferson; Johnson; Kearney; Keith; Keya Paha; Kimball; Knox; Lancaster; Lincoln; Logan; Loup; Madison; McPherson; Merrick; Morrill; Nance; Nemaha; Nuckolls; Otoe; Pawnee; Perkins; Phelps; Pierce; Platte; Polk; Red Willow; Richardson; Rock; Saline; Sarpy; Saunders; Scotts Bluff; Seward; Sheridan; Sherman; Sioux; Stanton; Thayer; Thomas; Thurston; Valley; Washington; Wayne; Webster; Wheeler; York., at least one grid missing
+DERIVED_FROM(EPSG):1746, NAD83 to WGS 84 (50), 2.0 m, United States (USA) - Utah., at least one grid missing
+DERIVED_FROM(EPSG):1736, NAD83 to WGS 84 (40), 2.0 m, United States (USA) - Virginia., at least one grid missing
+DERIVED_FROM(EPSG):1748, NAD83 to WGS 84 (52), 2.0 m, United States (USA) - Illinois., at least one grid missing
+DERIVED_FROM(EPSG):1732, NAD83 to WGS 84 (36), 2.0 m, United States (USA) - South Dakota., at least one grid missing
+DERIVED_FROM(EPSG):1719, NAD83 to WGS 84 (23), 2.0 m, United States (USA) - Louisiana., at least one grid missing
+DERIVED_FROM(EPSG):1713, NAD83 to WGS 84 (17), 2.0 m, United States (USA) - Georgia., at least one grid missing
+DERIVED_FROM(EPSG):1741, NAD83 to WGS 84 (45), 2.0 m, United States (USA) - Hawaii - main islands onshore., at least one grid missing
+DERIVED_FROM(EPSG):1743, NAD83 to WGS 84 (47), 2.0 m, United States (USA) - Kansas., at least one grid missing
+DERIVED_FROM(EPSG):1718, NAD83 to WGS 84 (22), 2.0 m, United States (USA) - Kentucky., at least one grid missing
+DERIVED_FROM(EPSG):1729, NAD83 to WGS 84 (33), 2.0 m, United States (USA) - North Dakota., at least one grid missing
+DERIVED_FROM(EPSG):1709, NAD83 to WGS 84 (13), 2.0 m, United States (USA) - Iowa., at least one grid missing
+DERIVED_FROM(EPSG):1723, NAD83 to WGS 84 (27), 2.0 m, United States (USA) - Mississippi., at least one grid missing
+DERIVED_FROM(EPSG):1717, NAD83 to WGS 84 (21), 2.0 m, United States (USA) - Alabama., at least one grid missing
+DERIVED_FROM(EPSG):1708, NAD83 to WGS 84 (12), 2.0 m, United States (USA) - Arkansas., at least one grid missing
+DERIVED_FROM(EPSG):1747, NAD83 to WGS 84 (51), 2.0 m, United States (USA) - West Virginia., at least one grid missing
+DERIVED_FROM(EPSG):1721, NAD83 to WGS 84 (25), 2.0 m, United States (USA) - Maine., at least one grid missing
+DERIVED_FROM(EPSG):1745, NAD83 to WGS 84 (49), 2.0 m, United States (USA) - Ohio., at least one grid missing
+DERIVED_FROM(EPSG):15837, NAD83 to WGS 84 (56), 2.0 m, United States (USA) - South Carolina - counties of Abbeville; Aiken; Allendale; Anderson; Bamberg; Barnwell; Beaufort; Berkeley; Calhoun; Charleston; Cherokee; Chester; Chesterfield; Clarendon; Colleton; Darlington; Dillon; Dorchester; Edgefield; Fairfield; Florence; Georgetown; Greenville; Greenwood; Hampton; Horry; Jasper; Kershaw; Lancaster; Laurens; Lee; Lexington; Marion; Marlboro; McCormick; Newberry; Oconee; Orangeburg; Pickens; Richland; Saluda; Spartanburg; Sumter; Union; Williamsburg; York., at least one grid missing
+DERIVED_FROM(EPSG):15839, NAD83 to WGS 84 (57), 2.0 m, United States (USA) - Pennsylvania., at least one grid missing
+DERIVED_FROM(EPSG):1725, NAD83 to WGS 84 (29), 2.0 m, United States (USA) - Connecticut; Massachusetts; New Hampshire; Rhode Island; Vermont., at least one grid missing
+DERIVED_FROM(EPSG):1733, NAD83 to WGS 84 (37), 2.0 m, United States (USA) - Tennessee - counties of Anderson; Bedford; Benton; Bledsoe; Blount; Bradley; Campbell; Cannon; Carroll; Carter; Cheatham; Chester; Claiborne; Clay; Cocke; Coffee; Crockett; Cumberland; Davidson; De Kalb; Decatur; Dickson; Dyer; Fayette; Fentress; Franklin; Gibson; Giles; Grainger; Greene; Grundy; Hamblen; Hamilton; Hancock; Hardeman; Hardin; Hawkins; Haywood; Henderson; Henry; Hickman; Houston; Humphreys; Jackson; Jefferson; Johnson; Knox; Lake; Lauderdale; Lawrence; Lewis; Lincoln; Loudon; Macon; Madison; Marion; Marshall; Maury; McMinn; McNairy; Meigs; Monroe; Montgomery; Moore; Morgan; Obion; Overton; Perry; Pickett; Polk; Putnam; Rhea; Roane; Robertson; Rutherford; Scott; Sequatchie; Sevier; Shelby; Smith; Stewart; Sullivan; Sumner; Tipton; Trousdale; Unicoi; Union; Van Buren; Warren; Washington; Wayne; Weakley; White; Williamson; Wilson., at least one grid missing
+DERIVED_FROM(EPSG):1742, NAD83 to WGS 84 (46), 2.0 m, United States (USA) - Indiana., at least one grid missing
+DERIVED_FROM(EPSG):1720, NAD83 to WGS 84 (24), 2.0 m, United States (USA) - Delaware and Maryland., at least one grid missing
+DERIVED_FROM(EPSG):1749, NAD83 to WGS 84 (53), 2.0 m, United States (USA) - New Jersey - counties of Atlantic; Bergen; Burlington; Camden; Cape May; Cumberland; Essex; Gloucester; Hudson; Hunterdon; Mercer; Middlesex; Monmouth; Morris; Ocean; Passaic; Salem; Somerset; Sussex; Union; Warren., at least one grid missing
+DERIVED_FROM(EPSG):1731, NAD83 to WGS 84 (35), 2.0 m, Puerto Rico and US Virgin Islands - onshore., at least one grid missing
+unknown id, Ballpark geographic offset from NAD83 to WGS 84, unknown accuracy, World, has ballpark transformation

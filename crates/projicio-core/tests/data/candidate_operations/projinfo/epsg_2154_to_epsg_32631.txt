@@ -1,0 +1,2 @@
+Candidate operations found: 1
+unknown id, Inverse of Lambert-93 + RGF93 v1 to WGS 84 (1) + UTM zone 31N, 1 m, France - onshore and offshore, mainland and Corsica (France métropolitaine including Corsica).

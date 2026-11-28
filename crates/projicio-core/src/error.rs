@@ -27,4 +27,13 @@ pub enum Error {
 
     #[error("invalid PROJJSON: {0}")]
     InvalidProjJson(String),
+
+    #[error("no coordinate operation from {source_crs} to {target_crs} covers the point")]
+    NoOperation {
+        source_crs: String,
+        target_crs: String,
+    },
+
+    #[error("cannot run {operation}: {reason}")]
+    OperationNotExecutable { operation: String, reason: String },
 }

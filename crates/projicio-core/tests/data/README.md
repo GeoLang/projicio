@@ -6,3 +6,5 @@
 
     pipeline=$(projinfo -k operation EPSG:<code> -o PROJ -q --single-line)
     cct -d 12 $pipeline < epsg_<code>.input.txt | tee epsg_<code>.cct_forward.txt | cct -I -d 12 $pipeline > epsg_<code>.cct_inverse.txt
+
+`candidate_operations/` serves `tests/candidate_operations.rs`, written with `PROJ_DATA` set to a directory holding only proj.db and `PROJ_NETWORK=OFF`, so PROJ 9.8.1 reads no grid. `projinfo/epsg_<a>_to_epsg_<b>.txt` is `projinfo -s EPSG:<a> -t EPSG:<b> --spatial-test intersects --grid-check known_available --summary`. `cs2cs/<pair>.input` are points written by hand in the source CRS's axis order and units, with an epoch as fourth column where the pair needs one, and `<pair>.cs2cs` is `cs2cs -d 12 EPSG:<a> EPSG:<b> < <pair>.input`. `test_operationfactory/<test>.cpp` are tests cut with `sed -n` from PROJ 9.8.1's `test/unit/test_operationfactory.cpp`, under the MIT licence in `LICENSES/PROJ-MIT.txt`.

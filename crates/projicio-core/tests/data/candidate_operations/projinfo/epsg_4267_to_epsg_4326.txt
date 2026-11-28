@@ -1,0 +1,80 @@
+Candidate operations found: 79
+DERIVED_FROM(EPSG):1693, NAD27 to WGS 84 (33), 2.0 m, Canada - onshore - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon; offshore east coast west of 44°W and north of 40°N., at least one grid missing
+EPSG:1172, NAD27 to WGS 84 (3), 20.0 m, Canada - onshore - Alberta; British Columbia; Manitoba; New Brunswick; Newfoundland and Labrador; Northwest Territories; Nova Scotia; Nunavut; Ontario; Prince Edward Island; Quebec; Saskatchewan; Yukon; offshore east coast west of 44°W and north of 40°N.
+DERIVED_FROM(EPSG):15851, NAD27 to WGS 84 (79), 5.0 m, United States (USA) - CONUS including EEZ - onshore and offshore - Alabama; Arizona; Arkansas; California; Colorado; Connecticut; Delaware; Florida; Georgia; Idaho; Illinois; Indiana; Iowa; Kansas; Kentucky; Louisiana; Maine; Maryland; Massachusetts; Michigan; Minnesota; Mississippi; Missouri; Montana; Nebraska; Nevada; New Hampshire; New Jersey; New Mexico; New York; North Carolina; North Dakota; Ohio; Oklahoma; Oregon; Pennsylvania; Rhode Island; South Carolina; South Dakota; Tennessee; Texas; Utah; Vermont; Virginia; Washington; West Virginia; Wisconsin; Wyoming. US Gulf of Mexico (GoM) OCS., at least one grid missing
+EPSG:1173, NAD27 to WGS 84 (4), 10.0 m, United States (USA) - CONUS onshore - Alabama; Arizona; Arkansas; California; Colorado; Connecticut; Delaware; Florida; Georgia; Idaho; Illinois; Indiana; Iowa; Kansas; Kentucky; Louisiana; Maine; Maryland; Massachusetts; Michigan; Minnesota; Mississippi; Missouri; Montana; Nebraska; Nevada; New Hampshire; New Jersey; New Mexico; New York; North Carolina; North Dakota; Ohio; Oklahoma; Oregon; Pennsylvania; Rhode Island; South Carolina; South Dakota; Tennessee; Texas; Utah; Vermont; Virginia; Washington; West Virginia; Wisconsin; Wyoming.
+EPSG:1182, NAD27 to WGS 84 (13), 8.0 m, Canada - Northwest Territories; Nunavut; Saskatchewan.
+DERIVED_FROM(EPSG):15864, NAD27 to WGS 84 (85), 5.0 m, United States (USA) - Alaska including EEZ., at least one grid missing
+EPSG:1175, NAD27 to WGS 84 (6), 7.0 m, United States (USA) - CONUS west of Mississippi River - onshore - excludes those states covered under Area 2389 - Includes Arizona; Arkansas; California; Colorado; Idaho; Iowa; Kansas; Montana; Nebraska; Nevada; New Mexico; North Dakota; Oklahoma; Oregon; South Dakota; Texas; Utah; Washington; Wyoming.
+EPSG:1174, NAD27 to WGS 84 (5), 11.0 m, United States (USA) - CONUS east of Mississippi River - onshore - including entire states of Louisiana; Missouri; Minnesota as well as Alabama; Connecticut; Delaware; Florida; Georgia; Illinois; Indiana; Kentucky; Maine; Maryland; Massachusetts; Michigan; Mississippi; New Hampshire; New Jersey; New York; North Carolina; Ohio; Pennsylvania; Rhode Island; South Carolina; Tennessee; Vermont; Virginia; West Virginia; Wisconsin.
+EPSG:1187, NAD27 to WGS 84 (18), 12.0 m, Mexico - onshore.
+EPSG:1180, NAD27 to WGS 84 (11), 12.0 m, Canada - Manitoba; Ontario.
+EPSG:1181, NAD27 to WGS 84 (12), 9.0 m, Canada - onshore - New Brunswick; Newfoundland and Labrador; Nova Scotia; Prince Edward Island; Quebec.
+EPSG:1176, NAD27 to WGS 84 (7), 12.0 m, United States (USA) - Alaska mainland.
+EPSG:8647, NAD27 to WGS 84 (78), 3.0 m, Canada - offshore Newfoundland and Labrador, New Brunswick and Nova Scotia - west of 44°W and north of 40°N., at least one grid missing
+EPSG:1170, NAD27 to WGS 84 (1), 16.0 m, Antigua; Barbados; Barbuda; Cuba; Dominican Republic; Grand Cayman; Jamaica; Turks and Caicos Islands. Note: does not include other islands within this geographic area.
+DERIVED_FROM(EPSG):1692, NAD27 to WGS 84 (34), 1.5 m, Canada - Quebec., at least one grid missing
+EPSG:1179, NAD27 to WGS 84 (10), 13.0 m, Canada - Alberta; British Columbia.
+EPSG:1171, NAD27 to WGS 84 (2), 10.0 m, Onshore Belize, Costa Rica, El Salvador, Guatemala, Honduras and Nicaragua.
+EPSG:15856, NAD27 to WGS 84 (84), 8.0 m, United States (USA) - offshore Gulf of Mexico outer continental shelf (GoM OCS) - protraction areas South Padre Island; North Padre Island; Mustang Island; Matagorda Island; Brazos; Galveston; High Island; Sabine Pass; West Cameron; East Cameron; Vermilion; South Marsh Island; Eugene Island; Ship Shoal; South Pelto; Bay Marchand; South Timbalier; Grand Isle; West Delta; South Pass; Main Pass; Breton Sound; Chandeleur; Corpus Christi; Port Isabel; East Breaks; Alaminos Canyon; Garden Banks; Keathley Canyon; Sigsbee Escarpment; Ewing Bank; Green Canyon; Walker Ridge; Amery Terrace; Mobile; Viosca Knoll; Mississippi Canyon; Atwater Valley; Lund; Lund South; Pensacola; Destin Dome; De Soto Canyon; Lloyd Ridge; Henderson; Florida Plain; Campeche Escarpment; Apalachicola; Florida Middle Ground; The Elbow; Vernon Basin; Howell Hook; Rankin; Gainesville; Tarpon Springs; St Petersburg; Charlotte Harbor; Pulley Ridge; Dry Tortugas; Tortugas Valley; Miami; Key West.
+EPSG:15978, NAD27 to WGS 84 (88), 1.0 m, Cuba - onshore and offshore.
+EPSG:1530, NAD27 to WGS 84 (30), 3.0 m, Cuba - onshore and offshore.
+EPSG:1183, NAD27 to WGS 84 (14), 10.0 m, Canada - Yukon.
+EPSG:8585, NAD27 to WGS 84 (36), 2.5 m, Canada - Alberta., at least one grid missing
+DERIVED_FROM(EPSG):1703, NAD27 to WGS 84 (32), 1.5 m, Canada - Saskatchewan., at least one grid missing
+EPSG:8624, NAD27 to WGS 84 (71), 1.5 m, United States (USA) - Texas east of 100°W., at least one grid missing
+EPSG:8625, NAD27 to WGS 84 (72), 1.5 m, United States (USA) - Texas west of 100°W., at least one grid missing
+EPSG:8596, NAD27 to WGS 84 (43), 1.5 m, United States (USA) - Florida., at least one grid missing
+EPSG:8611, NAD27 to WGS 84 (58), 1.5 m, United States (USA) - Idaho and Montana - east of 113°W., at least one grid missing
+EPSG:8621, NAD27 to WGS 84 (68), 1.5 m, United States (USA) - Oregon and Washington., at least one grid missing
+EPSG:8607, NAD27 to WGS 84 (54), 1.5 m, United States (USA) - Michigan., at least one grid missing
+EPSG:1177, NAD27 to WGS 84 (8), 8.0 m, Bahamas - onshore southwest of a line from 27°30'N, 77°30'W through 23°15'N, 74°30'W to 22°30'N, 72°30'W.
+EPSG:1185, NAD27 to WGS 84 (16), 44.0 m, Cuba - onshore.
+EPSG:15852, NAD27 to WGS 84 (80), 5.0 m, United States (USA) - offshore Gulf of Mexico (GoM) east of approximately 87°15'W - protraction areas Gainesville, Tarpon Springs, St Petersburg, Charlotte Harbor, Pulley Ridge, Dry Tortugas, Tortugas Valley, Miami, Key West, Apalachicola, Florida Middle Ground, The Elbow, Vernon Basin, Howell Hook, Rankin and Campeche Escarpment. Also for protraction areas Pensacola, Destin Dome, Desoto Canyon, Lloyd Ridge, Henderson and Florida Plain - east of 87°15'W.
+EPSG:8593, NAD27 to WGS 84 (40), 1.5 m, United States (USA) - California north of 36.5°N., at least one grid missing
+EPSG:8614, NAD27 to WGS 84 (61), 1.5 m, United States (USA) - Nevada., at least one grid missing
+EPSG:15853, NAD27 to WGS 84 (81), 5.0 m, United States (USA) - offshore Gulf of Mexico (GoM) between approximately 95°W and 87°15'W - protraction areas High Island (including all additions and extensions), Sabine Pass, West Cameron (including west and south additions), East Cameron (including south addition), Vermillion (including south addition), South Marsh Island (including north and south additions), Eugene Island (including south addition), Ship Shoal (including south addition), South Timbalier (including south addition), Grand Isle (including south addition), West Delta (including south addition), South Pass (including south and east additions), Main Pass (including south and east addition), Breton Sound, Chandeleur (including east addition), Mobile, Viosca Knoll, Mississippi Canyon, Atwater Valley, Lund, Lund South, Ewing Bank, Green Canyon, Walker Ridge, Amery Terrace, Garden Banks, Keathley Canyon and Sigsbee Escarpment. Also for protraction areas Galveston (including south addition), East Breaks and Aliminos Canyon - east of 95°W; for protraction areas Pensacola, Destin Dome, Desoto Canyon, Lloyd Ridge, Henderson and Florida Plain - west of 87°15'W.
+EPSG:8608, NAD27 to WGS 84 (55), 1.5 m, United States (USA) - Minnesota., at least one grid missing
+EPSG:8616, NAD27 to WGS 84 (63), 1.5 m, United States (USA) - New Mexico., at least one grid missing
+EPSG:8591, NAD27 to WGS 84 (38), 1.5 m, United States (USA) - Arizona., at least one grid missing
+EPSG:8617, NAD27 to WGS 84 (64), 1.5 m, United States (USA) - New York., at least one grid missing
+EPSG:8594, NAD27 to WGS 84 (41), 1.5 m, United States (USA) - California south of 36.5°N, at least one grid missing
+EPSG:8610, NAD27 to WGS 84 (57), 1.5 m, United States (USA) - Missouri., at least one grid missing
+EPSG:8620, NAD27 to WGS 84 (67), 1.5 m, United States (USA) - Oklahoma., at least one grid missing
+EPSG:8629, NAD27 to WGS 84 (76), 1.5 m, United States (USA) - Wisconsin., at least one grid missing
+EPSG:1249, NAD27 to WGS 84 (21), 15.0 m, United States (USA) - Alaska - Aleutian Islands onshore east of 180°E.
+EPSG:8595, NAD27 to WGS 84 (42), 1.5 m, United States (USA) - Colorado., at least one grid missing
+EPSG:8612, NAD27 to WGS 84 (59), 1.5 m, United States (USA) - Idaho and Montana - west of 113°W., at least one grid missing
+EPSG:8630, NAD27 to WGS 84 (77), 1.5 m, United States (USA) - Wyoming., at least one grid missing
+EPSG:8613, NAD27 to WGS 84 (60), 1.5 m, United States (USA) - Nebraska - counties of Adams; Antelope; Arthur; Banner; Blaine; Boone; Box Butte; Boyd; Brown; Buffalo; Burt; Butler; Cass; Cedar; Chase; Cherry; Cheyenne; Clay; Colfax; Cuming; Custer; Dakota; Dawes; Dawson; Deuel; Dixon; Dodge; Douglas; Dundy; Fillmore; Franklin; Frontier; Furnas; Gage; Garden; Garfield; Gosper; Grant; Greeley; Hall; Hamilton; Harlan; Hayes; Hitchcock; Holt; Hooker; Howard; Jefferson; Johnson; Kearney; Keith; Keya Paha; Kimball; Knox; Lancaster; Lincoln; Logan; Loup; Madison; McPherson; Merrick; Morrill; Nance; Nemaha; Nuckolls; Otoe; Pawnee; Perkins; Phelps; Pierce; Platte; Polk; Red Willow; Richardson; Rock; Saline; Sarpy; Saunders; Scotts Bluff; Seward; Sheridan; Sherman; Sioux; Stanton; Thayer; Thomas; Thurston; Valley; Washington; Wayne; Webster; Wheeler; York., at least one grid missing
+EPSG:8626, NAD27 to WGS 84 (73), 1.5 m, United States (USA) - Utah., at least one grid missing
+EPSG:8627, NAD27 to WGS 84 (74), 1.5 m, United States (USA) - Virginia., at least one grid missing
+EPSG:8598, NAD27 to WGS 84 (45), 1.5 m, United States (USA) - Illinois., at least one grid missing
+EPSG:8622, NAD27 to WGS 84 (69), 1.5 m, United States (USA) - South Dakota., at least one grid missing
+EPSG:8603, NAD27 to WGS 84 (50), 1.5 m, United States (USA) - Louisiana., at least one grid missing
+EPSG:8597, NAD27 to WGS 84 (44), 1.5 m, United States (USA) - Georgia., at least one grid missing
+EPSG:8601, NAD27 to WGS 84 (48), 1.5 m, United States (USA) - Kansas., at least one grid missing
+EPSG:8602, NAD27 to WGS 84 (49), 1.5 m, United States (USA) - Kentucky., at least one grid missing
+EPSG:8618, NAD27 to WGS 84 (65), 1.5 m, United States (USA) - North Dakota., at least one grid missing
+EPSG:8600, NAD27 to WGS 84 (47), 1.5 m, United States (USA) - Iowa., at least one grid missing
+EPSG:8609, NAD27 to WGS 84 (56), 1.5 m, United States (USA) - Mississippi., at least one grid missing
+EPSG:8590, NAD27 to WGS 84 (37), 1.5 m, United States (USA) - Alabama., at least one grid missing
+EPSG:7698, NAD27 to WGS 84 (89), 1.0 m, Panama - onshore.
+EPSG:15699, NAD27 to WGS 84 (87), 5.0 m, Mexico - offshore Gulf of Mexico (GoM) - Bay of Campeche southeast.
+EPSG:8592, NAD27 to WGS 84 (39), 1.5 m, United States (USA) - Arkansas., at least one grid missing
+EPSG:8628, NAD27 to WGS 84 (75), 1.5 m, United States (USA) - West Virginia., at least one grid missing
+EPSG:8604, NAD27 to WGS 84 (51), 1.5 m, United States (USA) - Maine., at least one grid missing
+EPSG:8619, NAD27 to WGS 84 (66), 1.5 m, United States (USA) - Ohio., at least one grid missing
+EPSG:8606, NAD27 to WGS 84 (53), 1.5 m, United States (USA) - Connecticut; Massachusetts; New Hampshire; Rhode Island; Vermont., at least one grid missing
+EPSG:8623, NAD27 to WGS 84 (70), 1.5 m, United States (USA) - Tennessee - counties of Anderson; Bedford; Benton; Bledsoe; Blount; Bradley; Campbell; Cannon; Carroll; Carter; Cheatham; Chester; Claiborne; Clay; Cocke; Coffee; Crockett; Cumberland; Davidson; De Kalb; Decatur; Dickson; Dyer; Fayette; Fentress; Franklin; Gibson; Giles; Grainger; Greene; Grundy; Hamblen; Hamilton; Hancock; Hardeman; Hardin; Hawkins; Haywood; Henderson; Henry; Hickman; Houston; Humphreys; Jackson; Jefferson; Johnson; Knox; Lake; Lauderdale; Lawrence; Lewis; Lincoln; Loudon; Macon; Madison; Marion; Marshall; Maury; McMinn; McNairy; Meigs; Monroe; Montgomery; Moore; Morgan; Obion; Overton; Perry; Pickett; Polk; Putnam; Rhea; Roane; Robertson; Rutherford; Scott; Sequatchie; Sevier; Shelby; Smith; Stewart; Sullivan; Sumner; Tipton; Trousdale; Unicoi; Union; Van Buren; Warren; Washington; Wayne; Weakley; White; Williamson; Wilson., at least one grid missing
+EPSG:15913, NAD27 to WGS 84 (86), 5.0 m, Mexico - offshore Gulf of Mexico (GoM) - Bay of Campeche northeast.
+EPSG:8599, NAD27 to WGS 84 (46), 1.5 m, United States (USA) - Indiana., at least one grid missing
+EPSG:1186, NAD27 to WGS 84 (17), 44.0 m, Greenland - Hayes Peninsula.
+EPSG:1250, NAD27 to WGS 84 (22), 18.0 m, United States (USA) - Alaska - Aleutian Islands onshore west of 180°W.
+EPSG:8605, NAD27 to WGS 84 (52), 1.5 m, United States (USA) - Delaware and Maryland., at least one grid missing
+EPSG:15854, NAD27 to WGS 84 (82), 5.0 m, United States (USA) - offshore Gulf of Mexico (GoM) west of approximately 95°W - protraction areas Brazos (including south addition), Matagorda Island, Mustang Island (including east addition); North Padre Island (including east addition), South Padre Island (including east addition), Corpus Christi and Port Isabel. Also protraction areas Galveston (including south addition), East Breaks and Aliminos Canyon - west of 95°W.
+EPSG:8615, NAD27 to WGS 84 (62), 1.5 m, United States (USA) - New Jersey - counties of Atlantic; Bergen; Burlington; Camden; Cape May; Cumberland; Essex; Gloucester; Hudson; Hunterdon; Mercer; Middlesex; Monmouth; Morris; Ocean; Passaic; Salem; Somerset; Sussex; Union; Warren., at least one grid missing
+EPSG:15855, NAD27 to WGS 84 (83), 5.0 m, Mexico - offshore Gulf of Mexico (GoM) - Tampico area.
+EPSG:1184, NAD27 to WGS 84 (15), 35.0 m, Panama - Canal Zone.
+EPSG:1178, NAD27 to WGS 84 (9), 44.0 m, Bahamas (San Salvador Island) - onshore.
+unknown id, Ballpark geographic offset from NAD27 to WGS 84, unknown accuracy, World, has ballpark transformation

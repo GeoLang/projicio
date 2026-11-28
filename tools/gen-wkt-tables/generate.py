@@ -492,6 +492,38 @@ def esri_vertical_rows(db):
     return rows
 
 
+def datum_search_rows(db):
+    # the SQL of AuthorityFactory::createObjectsFromNameEx for an approximate {GEODETIC_REFERENCE_FRAME} search, in its order
+    sql = (
+        "SELECT table_name, auth_name, code, name, deprecated, is_alias FROM ("
+        "SELECT 'geodetic_datum' AS table_name, auth_name, code, name, deprecated, 0 AS is_alias FROM geodetic_datum "
+        "WHERE 1 = 1  UNION SELECT 'geodetic_datum' AS table_name, ov.auth_name AS auth_name, ov.code AS code, "
+        "a.alt_name AS name, ov.deprecated AS deprecated, 1 as is_alias FROM geodetic_datum ov JOIN alias_name a ON "
+        "ov.auth_name = a.auth_name AND ov.code = a.code WHERE a.source != 'EPSG_OLD' AND a.table_name = 'geodetic_datum' "
+        ") ORDER BY deprecated, is_alias, length(name), name"
+    )
+    official_names = {
+        (auth_name, str(code)): name for auth_name, code, name in db.execute("SELECT auth_name, code, name FROM geodetic_datum")
+    }
+    rows = []
+    for _table, auth_name, code, name, deprecated, _is_alias in db.execute(sql):
+        official_name = official_names[(auth_name, str(code))]
+        rows.append(("datum_search", name, f"{auth_name}:{code}", official_name, str(deprecated)))
+    return rows
+
+
+def geodetic_crs_remarks_rows(db):
+    # the remarks AuthorityFactory::createGeodeticCRS takes from the description, for the base CRS of each EPSG projected CRS
+    return [
+        ("crs_remarks", "geodetic_crs", f"EPSG:{code}", description)
+        for code, description in db.execute(
+            "SELECT code, description FROM geodetic_crs g WHERE auth_name = 'EPSG' AND description != '' AND EXISTS "
+            "(SELECT 1 FROM projected_crs p WHERE p.geodetic_crs_auth_name = 'EPSG' AND p.geodetic_crs_code = g.code) "
+            "ORDER BY code"
+        )
+    ]
+
+
 def derived_by_name(objects, tables):
     derived = {}
     for table, _code, name, alias in objects:
@@ -596,6 +628,8 @@ def generate_tsv(proj_db):
             rows.append(("esri_definition", "projected_crs", esri_name, matches[0][1]))
 
     rows.extend(esri_vertical_rows(db))
+    rows.extend(datum_search_rows(db))
+    rows.extend(geodetic_crs_remarks_rows(db))
 
     for row in rows:
         assert not any("\n" in field for field in row), row

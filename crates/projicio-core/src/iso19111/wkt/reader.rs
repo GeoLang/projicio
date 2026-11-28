@@ -4,9 +4,9 @@ use std::collections::BTreeMap;
 use std::f64::consts::PI;
 
 use super::database::{
-    geodetic_datum_aliases, geographic_crs_coordinate_system, is_known_datum_name,
-    official_name_from_esri_alias, projected_crs_named, registered_geodetic_datum,
-    registered_geographic_crs_with_axes,
+    first_geodetic_datum_named, geodetic_datum_aliases, geographic_crs_coordinate_system,
+    is_known_datum_name, official_name_from_esri_alias, projected_crs_named,
+    registered_geodetic_datum, registered_geographic_crs_with_axes, registered_projected_crs,
 };
 use super::mappings::{EsriMethodMapping, MethodMapping};
 use super::methods::{
@@ -19,16 +19,18 @@ use super::methods::{
     METHOD_MERCATOR_VARIANT_B, METHOD_NTV2, METHOD_POLAR_STEREOGRAPHIC_VARIANT_A,
     METHOD_POLAR_STEREOGRAPHIC_VARIANT_B, METHOD_POPULAR_VISUALISATION_PSEUDO_MERCATOR,
     METHOD_POSITION_VECTOR_GEOCENTRIC, METHOD_POSITION_VECTOR_GEOGRAPHIC_2D,
-    METHOD_POSITION_VECTOR_GEOGRAPHIC_3D, METHOD_TRANSVERSE_MERCATOR_SOUTH_ORIENTATED,
-    PARAMETER_ANGLE_RECTIFIED_TO_SKEW_GRID, PARAMETER_AZIMUTH_PROJECTION_CENTRE,
+    METHOD_POSITION_VECTOR_GEOGRAPHIC_3D, METHOD_TRANSVERSE_MERCATOR,
+    METHOD_TRANSVERSE_MERCATOR_SOUTH_ORIENTATED, PARAMETER_ANGLE_RECTIFIED_TO_SKEW_GRID,
+    PARAMETER_AZIMUTH_PROJECTION_CENTRE, PARAMETER_FALSE_EASTING, PARAMETER_FALSE_NORTHING,
     PARAMETER_LATITUDE_1ST_STD_PARALLEL, PARAMETER_LATITUDE_LONGITUDE_DIFFERENCE_FILE,
     PARAMETER_LATITUDE_OF_NATURAL_ORIGIN, PARAMETER_LATITUDE_STD_PARALLEL,
-    PARAMETER_SCALE_DIFFERENCE, PARAMETER_SCALE_FACTOR_AT_NATURAL_ORIGIN,
-    PARAMETER_X_AXIS_ROTATION, PARAMETER_X_AXIS_TRANSLATION, PARAMETER_Y_AXIS_ROTATION,
-    PARAMETER_Y_AXIS_TRANSLATION, PARAMETER_Z_AXIS_ROTATION, PARAMETER_Z_AXIS_TRANSLATION,
-    are_equivalent_parameters, esri_mappings_from_esri_name, mapping_by_code, mapping_by_wkt2_name,
-    mapping_from_wkt1, method_epsg_code, method_name_of_code, parameter_epsg_code,
-    parameter_mapping_from_wkt1, parameter_name_of_code, parameter_value_in_unit,
+    PARAMETER_LONGITUDE_OF_NATURAL_ORIGIN, PARAMETER_SCALE_DIFFERENCE,
+    PARAMETER_SCALE_FACTOR_AT_NATURAL_ORIGIN, PARAMETER_X_AXIS_ROTATION,
+    PARAMETER_X_AXIS_TRANSLATION, PARAMETER_Y_AXIS_ROTATION, PARAMETER_Y_AXIS_TRANSLATION,
+    PARAMETER_Z_AXIS_ROTATION, PARAMETER_Z_AXIS_TRANSLATION, are_equivalent_parameters,
+    esri_mappings_from_esri_name, mapping_by_code, mapping_by_wkt2_name, mapping_from_wkt1,
+    method_epsg_code, method_name_of_code, parameter_epsg_code, parameter_mapping_from_wkt1,
+    parameter_name_of_code, parameter_value_in_unit,
 };
 use super::node::{WktNode, as_double, parse_error, strip_quotes};
 use super::other_method::conversion_from_method_code;
@@ -989,40 +991,31 @@ impl Parser {
         name: &str,
         properties: &mut Properties,
     ) -> bool {
-        // PROJ searches all datums by approximate name, here the datum of the AUTHORITY node stands in for that search
+        // the identifyFromName lambda of WKTParser::Private::buildGeodeticReferenceFrame
+        if let Some(datum) = first_geodetic_datum_named(name) {
+            let found = is_equivalent_name(name, datum.name)
+                || datum
+                    .names_and_aliases
+                    .iter()
+                    .any(|alias| is_equivalent_name(name, alias));
+            if found {
+                properties.name = datum.name.to_string();
+                properties.identifiers = vec![datum.identifier];
+            }
+            return found;
+        }
+        // createObjectsFromName found nothing, so PROJ takes the name of the AUTHORITY datum
         let Some(authority_node) = node.look_for_child(&["AUTHORITY"]) else {
             return false;
         };
         let Ok(Some(identifier)) = self.build_id(node, authority_node, false) else {
             return false;
         };
-        let Some(official_name) = registered_geodetic_datum(&identifier).map(|datum| datum.name)
-        else {
+        let Some(datum) = registered_geodetic_datum(&identifier) else {
             return false;
         };
-        let aliases = geodetic_datum_aliases(&identifier);
-        let searched = canonicalize_name(name);
-        let lowercase_name = name.to_ascii_lowercase();
-        let search_finds = |candidate: &str| {
-            candidate.to_ascii_lowercase().contains(&lowercase_name)
-                || canonicalize_name(candidate).contains(&searched)
-        };
-        // createObjectsFromNameEx returns nothing for a name that canonicalizes to one character or less
-        let search_finds_nothing = searched.len() <= 1
-            || (!search_finds(official_name.as_str())
-                && !aliases.iter().any(|alias| search_finds(alias)));
-        if search_finds_nothing {
-            // createObjectsFromName found nothing, so PROJ takes the name of the AUTHORITY datum
-            properties.name = official_name;
-            return true;
-        }
-        let found = is_equivalent_name(name, &official_name)
-            || aliases.iter().any(|alias| is_equivalent_name(name, alias));
-        if found {
-            properties.name = official_name;
-            properties.identifiers = vec![identifier];
-        }
-        found
+        properties.name = datum.name;
+        true
     }
 
     fn build_geodetic_reference_frame(
@@ -2076,12 +2069,12 @@ impl Parser {
             }
         }
 
-        Ok(Conversion {
+        Ok(identified(Conversion {
             name: "unnamed".to_string(),
             identifiers: Vec::new(),
             method,
             parameter_values,
-        })
+        }))
     }
 
     fn build_projected_crs(&mut self, node: &WktNode) -> Result<ProjectedCrs, Error> {
@@ -2112,12 +2105,22 @@ impl Parser {
             CoordinateSystem::Ellipsoidal(_) => None,
         };
 
-        // TODO: PROJ renames "ETRF2000-PL / CS92" to EPSG:2180 from its database
+        let etrf2000_pl_cs92 = if self.esri_style {
+            projected_name == "ETRF2000-PL_CS92"
+                && (base.name == "GCS_ETRF2000-PL" || base.name == "ETRF2000-PL")
+        } else {
+            projected_name == "ETRF2000-PL / CS92" && base.name == "ETRF2000-PL"
+        };
         let national_etrs89 = ((projected_name.starts_with("ETRS89 / ")
             || (self.esri_style && projected_name.starts_with("ETRS_1989_")))
             && base.name == "ETRS89")
             || projected_name.starts_with("ETRF2000-PL /");
-        if national_etrs89 && base.coordinate_system.axes.len() == 2 {
+        if etrf2000_pl_cs92 {
+            if let Some(epsg_2180) = registered_projected_crs(&epsg_identifier(2180)) {
+                properties.name = epsg_2180.name;
+                base = *epsg_2180.base_crs;
+            }
+        } else if national_etrs89 && base.coordinate_system.axes.len() == 2 {
             // EPSG v12.025 moved the Norway projected CRSs from ETRS89 to ETRS89-NOR [EUREF89], and later releases other national realizations
             let candidate = projected_crs_named(&projected_name).filter(|candidate| {
                 candidate.base_crs.name != base.name
@@ -2372,69 +2375,6 @@ fn with_datum_alias_resolved(crs: &GeographicCrs, reference: &GeographicCrs) -> 
         resolved_frame.name = reference_frame.name.clone();
     }
     resolved
-}
-
-fn canonicalize_name(name: &str) -> String {
-    // metadata::Identifier::canonicalizeName with bigger differences allowed, non-ASCII letters kept as they are
-    let bytes = name.as_bytes();
-    let byte_at = |index: usize| bytes.get(index).copied().unwrap_or(0);
-    let is_ignored = |byte: u8| {
-        matches!(
-            byte,
-            b' ' | b'_' | b'-' | b'/' | b'(' | b')' | b'.' | b'&' | b','
-        )
-    };
-    let matches_lowercase = |index: usize, word: &str| {
-        bytes
-            .get(index..index + word.len())
-            .is_some_and(|slice| slice.eq_ignore_ascii_case(word.as_bytes()))
-    };
-    let mut canonical: Vec<u8> = Vec::new();
-    let mut index = 0;
-    while index < bytes.len() {
-        let byte = bytes[index].to_ascii_lowercase();
-        if byte == b' ' && byte_at(index + 1) == b'+' && byte_at(index + 2) == b' ' {
-            index += 3;
-            continue;
-        }
-        // "19dd" canonicalizes as "dd"
-        if byte == b'1'
-            && canonical.last().is_some_and(|last| !last.is_ascii_digit())
-            && byte_at(index + 1) == b'9'
-            && byte_at(index + 2).is_ascii_digit()
-            && byte_at(index + 3).is_ascii_digit()
-        {
-            index += 2;
-            continue;
-        }
-        let after_ignored = index > 0 && is_ignored(bytes[index - 1]);
-        let skipped = ["zone", "height"]
-            .into_iter()
-            .find(|word| after_ignored && matches_lowercase(index, word));
-        if let Some(word) = skipped {
-            index += word.len();
-            continue;
-        }
-        let after_ignored_or_digit =
-            index > 0 && (is_ignored(bytes[index - 1]) || bytes[index - 1].is_ascii_digit());
-        let shortened = ["north", "south"]
-            .into_iter()
-            .find(|word| after_ignored_or_digit && matches_lowercase(index, word));
-        if let Some(word) = shortened {
-            canonical.push(byte);
-            index += word.len();
-            continue;
-        }
-        if matches_lowercase(index, "_IntlFeet") && index + "_IntlFeet".len() == bytes.len() {
-            canonical.extend_from_slice(b"feet");
-            break;
-        }
-        if !is_ignored(byte) {
-            canonical.push(byte);
-        }
-        index += 1;
-    }
-    String::from_utf8_lossy(&canonical).into_owned()
 }
 
 fn normalize_axis_name(name: &str) -> String {
@@ -2704,6 +2644,85 @@ fn polar_stereographic(projected_node: &WktNode, units: &DefaultUnits) -> Option
     None
 }
 
+struct UtmZone {
+    zone: i32,
+    north: bool,
+}
+
+const PARAMETER_LONGITUDE_OF_ORIGIN: i32 = 8833;
+
+fn utm_zone(conversion: &Conversion) -> Option<UtmZone> {
+    // Conversion::isUTM
+    if method_epsg_code(&conversion.method) != METHOD_TRANSVERSE_MERCATOR {
+        return None;
+    }
+    let mut latitude_of_origin_is_utm = false;
+    let mut scale_factor_is_utm = false;
+    let mut false_easting_is_utm = false;
+    let mut false_northing_is_utm = false;
+    let mut zone = 0;
+    let mut north = true;
+    for value in &conversion.parameter_values {
+        let ParameterValue::Measure(measure) = &value.value else {
+            continue;
+        };
+        let code = parameter_epsg_code(&value.parameter);
+        if code == PARAMETER_LATITUDE_OF_NATURAL_ORIGIN && measure.value.abs() < 1e-10 {
+            latitude_of_origin_is_utm = true;
+        } else if (code == PARAMETER_LONGITUDE_OF_NATURAL_ORIGIN
+            || code == PARAMETER_LONGITUDE_OF_ORIGIN)
+            && measure.unit.is_equivalent_to(&UnitOfMeasure::degree())
+        {
+            let zone_number = (measure.value + 183.0) / 6.0;
+            if zone_number > 0.9
+                && zone_number < 60.1
+                && (zone_number - zone_number.round()).abs() < 1e-10
+            {
+                zone = zone_number.round() as i32;
+            }
+        } else if code == PARAMETER_SCALE_FACTOR_AT_NATURAL_ORIGIN
+            && measure.unit.is_equivalent_to(&UnitOfMeasure::scale_unity())
+            && (measure.value - 0.9996).abs() < 1e-10
+        {
+            scale_factor_is_utm = true;
+        } else if code == PARAMETER_FALSE_EASTING
+            && measure.value == 500000.0
+            && measure.unit.is_equivalent_to(&UnitOfMeasure::metre())
+        {
+            false_easting_is_utm = true;
+        } else if code == PARAMETER_FALSE_NORTHING
+            && measure.unit.is_equivalent_to(&UnitOfMeasure::metre())
+        {
+            if measure.value.abs() < 1e-10 {
+                false_northing_is_utm = true;
+                north = true;
+            } else if (measure.value - 10000000.0).abs() < 1e-10 {
+                false_northing_is_utm = true;
+                north = false;
+            }
+        }
+    }
+    let is_utm = latitude_of_origin_is_utm
+        && zone > 0
+        && scale_factor_is_utm
+        && false_easting_is_utm
+        && false_northing_is_utm;
+    is_utm.then_some(UtmZone { zone, north })
+}
+
+fn identified(conversion: Conversion) -> Conversion {
+    // Conversion::identify names a UTM conversion as EPSG does, with its EPSG code
+    let Some(UtmZone { zone, north }) = utm_zone(&conversion) else {
+        return conversion;
+    };
+    let (hemisphere, first_code) = if north { ('N', 16000) } else { ('S', 16100) };
+    Conversion {
+        name: format!("UTM zone {zone}{hemisphere}"),
+        identifiers: vec![epsg_identifier(first_code + zone)],
+        ..conversion
+    }
+}
+
 fn build_projection_from_esri(
     base: &GeographicCrs,
     projected_node: &WktNode,
@@ -2798,7 +2817,7 @@ fn build_projection_from_esri(
     } else {
         "unnamed"
     };
-    Ok(Conversion {
+    Ok(identified(Conversion {
         name: name.to_string(),
         identifiers: Vec::new(),
         method: OperationMethod {
@@ -2806,7 +2825,7 @@ fn build_projection_from_esri(
             identifiers: identifiers_of_code(wkt2_mapping.epsg_code),
         },
         parameter_values,
-    })
+    }))
 }
 
 fn parse_dynamic(dynamic_node: &WktNode) -> Result<DynamicFrame, Error> {

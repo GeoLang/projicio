@@ -186,6 +186,15 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- 2026-11-28: `Crs::from_wkt` reads WKT1 as projinfo 9.8.1 does in four more ways. A
+  WKT1 UTM conversion is named "UTM zone 15N" with its EPSG code, as `Conversion::identify`
+  names it, where it was "unnamed". A WKT1 datum name is looked up among the datums and
+  aliases of every authority in proj.db, in PROJ's order, so `Cadastre_1997` reads as
+  IGNF's "CADASTRE 1997" and an ESRI `D_` name with no ESRI alias finds its EPSG datum
+  without an AUTHORITY node. An ESRI ETRS89 projected CRS moved to a national realization
+  takes the remarks of its new base CRS. "ETRF2000-PL / CS92" takes the base CRS of
+  EPSG:2180. `data/esri_names.tsv` adds the datum search rows and the base CRS remarks
+  and grows from 0.9 to 1.2 MB.
 - Landing page Quick Start called `Transform::forward`, which does not exist, and printed
   Web Mercator coordinates 199 m and 265 m from the crate's own values.
 - `epsg::parse_wkt_epsg` on nested WKT returned the first `AUTHORITY`/`ID` code it saw,

@@ -980,3 +980,107 @@ fn esri_projcs_and_vertcs_read_as_a_projected_3d_crs() {
         Crs::from_projjson(EPSG_9895_FROM_ESRI_PROJJSON).expect("projinfo's PROJJSON of EPSG:9895");
     assert_eq!(read, expected);
 }
+
+fn assert_reads_as_projinfo(name: &str, wkt: &str, projinfo_projjson: &str) -> Crs {
+    let crs = parse_wkt(name, wkt);
+    // PROJ's _exportToJSON writes measures with 15 significant digits and leaves out CRS::hasImplicitCS
+    let read = Crs::from_projjson(&crs.to_projjson()).expect("PROJJSON of the read CRS");
+    let expected = Crs::from_projjson(projinfo_projjson)
+        .unwrap_or_else(|e| panic!("projinfo's PROJJSON of {name}: {e}"));
+    assert_eq!(read, expected, "{name}");
+    crs
+}
+
+#[test]
+fn wkt1_utm_conversion_takes_the_epsg_utm_name_and_code() {
+    // projinfo given the WKT1 ESRI of EPSG:32632 -o PROJJSON -q
+    let crs = assert_reads_as_projinfo(
+        "EPSG:32632 WKT1 ESRI",
+        include_str!("data/wkt/wkt1_esri/epsg_32632.wkt"),
+        include_str!("data/wkt/projjson/epsg_32632_from_wkt1_esri.json"),
+    );
+    let Crs::Projected(projected) = &crs else {
+        panic!("EPSG:32632 is projected");
+    };
+    assert_eq!(projected.conversion.name, "UTM zone 32N");
+    assert_eq!(projected.conversion.identifiers[0].code, "16032");
+}
+
+fn datum_name(crs: &Crs) -> &str {
+    let datum = match crs {
+        Crs::Geographic(geographic) => &geographic.datum,
+        Crs::Projected(projected) => &projected.base_crs.datum,
+        _ => panic!("geographic or projected"),
+    };
+    let GeodeticDatum::ReferenceFrame(frame) = datum else {
+        panic!("one datum");
+    };
+    &frame.name
+}
+
+#[test]
+fn wkt1_datum_takes_the_name_of_the_first_datum_proj_db_finds() {
+    // projinfo EPSG:<code> -o <dialect> -q, and projinfo given that WKT -o PROJJSON -q
+    let cases = [
+        (
+            "EPSG:4475 WKT1 GDAL",
+            include_str!("data/wkt/wkt1_gdal/epsg_4475.wkt"),
+            include_str!("data/wkt/projjson/epsg_4475_from_wkt1_gdal.json"),
+            // IGNF's CADASTRE 1997 sorts before EPSG's Cadastre 1997
+            "CADASTRE 1997",
+        ),
+        (
+            "EPSG:10807 WKT1 ESRI",
+            include_str!("data/wkt/wkt1_esri/epsg_10807.wkt"),
+            include_str!("data/wkt/projjson/epsg_10807_from_wkt1_esri.json"),
+            // D_Nordic_Geodetic_Commission_ETRF14 is no ESRI alias and the WKT has no AUTHORITY
+            "Nordic Geodetic Commission ETRF14",
+        ),
+    ];
+    for (name, wkt, projjson, expected_datum_name) in cases {
+        let crs = assert_reads_as_projinfo(name, wkt, projjson);
+        assert_eq!(datum_name(&crs), expected_datum_name, "{name}");
+    }
+}
+
+#[test]
+fn esri_etrs89_projected_crs_takes_the_remarks_of_its_new_base() {
+    // projinfo given the WKT1 ESRI of EPSG:5105 -o PROJJSON -q
+    let crs = assert_reads_as_projinfo(
+        "EPSG:5105 WKT1 ESRI",
+        EPSG_5105_ESRI,
+        include_str!("data/wkt/projjson/epsg_5105_from_wkt1_esri.json"),
+    );
+    let Crs::Projected(projected) = &crs else {
+        panic!("EPSG:5105 is projected");
+    };
+    assert_eq!(
+        projected.base_crs.remarks,
+        "Horizontal component of the national realization of ETRS89 in Norway."
+    );
+}
+
+#[test]
+fn etrf2000_pl_cs92_takes_the_base_crs_of_epsg_2180() {
+    // projinfo EPSG:2180 -o <dialect> -q, and projinfo given that WKT -o PROJJSON -q
+    let cases = [
+        (
+            "EPSG:2180 WKT2 2015",
+            include_str!("data/wkt/wkt2_2015/epsg_2180.wkt"),
+            include_str!("data/wkt/projjson/epsg_2180_from_wkt2_2015.json"),
+        ),
+        (
+            "EPSG:2180 WKT1 ESRI",
+            include_str!("data/wkt/wkt1_esri/epsg_2180.wkt"),
+            include_str!("data/wkt/projjson/epsg_2180_from_wkt1_esri.json"),
+        ),
+    ];
+    for (name, wkt, projjson) in cases {
+        let crs = assert_reads_as_projinfo(name, wkt, projjson);
+        let Crs::Projected(projected) = &crs else {
+            panic!("{name} is projected");
+        };
+        assert_eq!(projected.name, "ETRF2000-PL / CS92", "{name}");
+        assert_eq!(projected.base_crs.identifiers[0].code, "9702", "{name}");
+    }
+}

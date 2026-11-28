@@ -1,0 +1,43 @@
+{
+  "$schema": "https://proj.org/schemas/v0.7/projjson.schema.json",
+  "type": "GeographicCRS",
+  "name": "GCS_NKG_ETRF14",
+  "datum": {
+    "type": "GeodeticReferenceFrame",
+    "name": "Nordic Geodetic Commission ETRF14",
+    "ellipsoid": {
+      "name": "GRS 1980",
+      "semi_major_axis": 6378137,
+      "inverse_flattening": 298.257222101
+    },
+    "id": {
+      "authority": "EPSG",
+      "code": 1403
+    }
+  },
+  "coordinate_system": {
+    "subtype": "ellipsoidal",
+    "axis": [
+      {
+        "name": "Longitude",
+        "abbreviation": "lon",
+        "direction": "east",
+        "unit": {
+          "type": "AngularUnit",
+          "name": "Degree",
+          "conversion_factor": 0.0174532925199433
+        }
+      },
+      {
+        "name": "Latitude",
+        "abbreviation": "lat",
+        "direction": "north",
+        "unit": {
+          "type": "AngularUnit",
+          "name": "Degree",
+          "conversion_factor": 0.0174532925199433
+        }
+      }
+    ]
+  }
+}

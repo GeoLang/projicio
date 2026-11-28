@@ -134,7 +134,7 @@ release tarball and regenerates the blob with `--check` to prove it still matche
 for byte.
 
 The WKT method and parameter tables (`src/iso19111/wkt/mappings.rs`) and the ESRI name
-table (`data/esri_names.tsv`, 0.9 MB, embedded with the `registry` feature) come from a
+table (`data/esri_names.tsv`, 1.2 MB, embedded with the `registry` feature) come from a
 PROJ 9.8.1 source checkout and its proj.db:
 
 ```bash
@@ -435,8 +435,10 @@ grids in NTv2, CTable2 and NTv1 form from PROJ 9.8.1's `data/tests`.
 ESRI on one line, which is `WktLayout::SingleLine`. A WKT1 TOWGS84 reads as a BoundCRS to
 WGS 84. An ESRI projected 3D CRS writes as `PROJCS[...],VERTCS[...]` and reads back as a
 projected 3D CRS. Vertical, compound, engineering and derived CRSs raise. With the
-`registry` feature, EPSG identifiers give a WKT1 geographic CRS its EPSG axes, and ESRI
-names map to and from EPSG names. `Transform` still reads WKT through proj4wkt.
+`registry` feature, EPSG identifiers give a WKT1 geographic CRS its EPSG axes, ESRI
+names map to and from EPSG names, and a WKT1 datum name takes the name of the first datum
+of any authority in proj.db that PROJ's name search finds. `Transform` still reads WKT
+through proj4wkt.
 
 ## Choosing an operation between two CRSs
 

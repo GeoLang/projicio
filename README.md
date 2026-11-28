@@ -458,6 +458,33 @@ radians of it, as `cs2cs` does. The `datum_transformation` tests compare one ope
 method against `cct` running the pipeline `projinfo` prints, to 1 mm and 1e-9 degrees in
 both directions.
 
+### Horizontal grid transformations by EPSG method
+
+`horizontal_shift_grid` is projicio's own grid store, separate from `grids` above, which
+`Transform` still uses. `horizontal_shift_grid::register_file(name, path)` and
+`register_bytes(name, bytes)` read an NTv2, NTv1 or CTable2 grid, subgrids included, and
+raise at once on a file they cannot read. A name registers once and stays for the life of
+the process. GeoTIFF grids, the form proj-data ships, raise for now.
+
+`grid_transformation_from_epsg_method(method_code, grid_files)` takes an EPSG method code
+and the operation's `(EPSG parameter code, file name)` pairs as the registry holds them,
+and returns a transformation with the same `forward` and `inverse` as above. It covers
+NTv2 (9615), NTv1 (9614) and NADCON (9613). A grid counts as present when it is registered
+under any name `accepted_names(file_name)` lists: for an EPSG file name, PROJ's CDN name,
+PROJ's older name and EPSG's own, so `conus` serves EPSG's `conus.las`, and for a PROJ file
+name, PROJ's two names. A file proj.db marks as running in reverse, such as `ntf_r93.gsb`
+for EPSG's `rgf93_ntf.gsb`, runs in reverse when the operation names EPSG's file, and
+forward when it names PROJ's, as PROJ's factory does. A grid nobody
+registered raises naming every accepted name, and a point outside every grid raises naming
+the grid. NADCON5 (1074) and the IGN geocentric translations (1087) raise, since PROJ has
+those grids only as GeoTIFF.
+
+Reading, subgrid selection, bilinear interpolation and the iterative inverse are ported
+from PROJ 9.8.1's `grids.cpp`. The `horizontal_shift_grid` tests compare small NTv2, NTv1
+and CTable2 grids against `cct` in both directions, and
+`horizontal_shift_grid_proj_data` compares EPSG:15940, 1241 and 1312 on copies of their
+grids in NTv2, CTable2 and NTv1 form from PROJ 9.8.1's `data/tests`.
+
 ## Choosing an operation between two CRSs
 
 `operation_factory::CandidateOperations::new(source, target)` takes two `iso19111::Crs` and
@@ -500,7 +527,8 @@ implementations are ported from [proj-rust](https://github.com/roteiro-gis/proj-
 its MIT OR Apache-2.0 license.
 
 The projections behind `from_epsg_method`, the datum transformations behind
-`transformation_from_epsg_method` and the operation search behind `CandidateOperations` are
+`transformation_from_epsg_method`, the operation search behind `CandidateOperations` and the
+grid readers behind `horizontal_shift_grid` are
 ported from [PROJ](https://github.com/OSGeo/PROJ),
 used under its MIT license, kept in [LICENSES/PROJ-MIT.txt](LICENSES/PROJ-MIT.txt).
 

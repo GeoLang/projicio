@@ -116,6 +116,7 @@ footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color
 <li>The rest go to proj4rs over an embedded proj4 definition table</li>
 <li>NTv2 datum shift grids registered at runtime, from a path or from bytes</li>
 <li>The Helmert, Molodensky-Badekas, longitude rotation and geographic offset methods of current EPSG operations, ported from PROJ and keyed by EPSG method code. <code>Transform</code> does not use them yet</li>
+<li>The NTv2, NTv1 and NADCON methods of current EPSG operations on projicio's own NTv2, NTv1 and CTable2 grid readers, ported from PROJ. GeoTIFF grids are not read yet, and <code>Transform</code> does not use them yet</li>
 <li>EPSG names, deprecation flags, datums and areas of use from an embedded blob (the <code>registry</code> feature), with the CRS definitions and coordinate operations behind them as plain records</li>
 <li>WKT1 and WKT2 read wherever an EPSG code is accepted</li>
 <li>The operation PROJ's <code>proj_create_crs_to_crs</code> would use between two CRSs, chosen per point as <code>proj_trans</code> chooses it, through <code>operation_factory::CandidateOperations</code>. <code>Transform</code> does not use it yet</li>

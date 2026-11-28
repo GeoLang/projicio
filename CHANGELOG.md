@@ -22,6 +22,13 @@ All notable changes to this project will be documented in this file.
   for lines with a height or an epoch. `candidate_operations_batch` converts with
   `convert_allowing_ballpark`, since cs2cs answers with a ballpark operation where no other
   exists.
+- 2026-11-27: `horizontal_shift_grid`, projicio's own store of horizontal datum shift
+  grids, reads NTv2, NTv1 and CTable2 files with their subgrids, ported from PROJ's
+  `grids.cpp`. `grid_transformation_from_epsg_method` runs the NTv2 (9615), NTv1 (9614) and
+  NADCON (9613) methods on a registered grid under any name PROJ accepts for it, in reverse
+  where proj.db says so for EPSG's file name and forward for PROJ's. GeoTIFF grids raise, so NADCON5 (1074) and the IGN geocentric
+  translations (1087) do too. `examples/grid_transformation_batch.rs` runs one case per
+  stdin line. `Transform` and the wasm bindings still use `grids`.
 - 2026-11-27: `iso19111::authority_factory` builds CRSs, datums, ensembles, ellipsoids,
   prime meridians, coordinate systems, units, conversions and coordinate operations from
   the registry, following PROJ's `AuthorityFactory`. `iso19111::CoordinateOperation` covers

@@ -24,6 +24,8 @@ pub mod epsg;
 mod error;
 mod fallback;
 pub mod grids;
+#[cfg(feature = "registry")]
+pub mod horizontal_shift_grid;
 pub mod iso19111;
 #[cfg(feature = "registry")]
 pub mod operation_factory;
@@ -44,6 +46,8 @@ pub use datum_transformation::{
 pub use ellipsoid::Ellipsoid;
 pub use epsg::Support;
 pub use error::Error;
+#[cfg(feature = "registry")]
+pub use horizontal_shift_grid::grid_transformation_from_epsg_method;
 pub use projection::{
     AlbersEqualArea, AmericanPolyconic, CassiniSoldner, EqualEarth, HotineObliqueMercator, Laborde,
     LambertAzimuthalEqualArea, LambertConformalConic, Mercator, PolarStereographic, Projection,
